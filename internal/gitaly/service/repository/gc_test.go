@@ -32,6 +32,7 @@ func TestGarbageCollectCommitGraph(t *testing.T) {
 	ctx := testhelper.Context(t)
 	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 
+	//nolint:staticcheck
 	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
@@ -68,6 +69,7 @@ func TestGarbageCollectSuccess(t *testing.T) {
 			// precision on `mtime`.
 			// Stamp taken from https://golang.org/pkg/time/#pkg-constants
 			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
+			//nolint:staticcheck
 			c, err := client.GarbageCollect(ctx, test.req)
 			assert.NoError(t, err)
 			assert.NotNil(t, c)
@@ -118,12 +120,14 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	require.NoError(t, os.Chtimes(oldReferencedObjFile, farAgo, farAgo))
 
 	// Prune option has no effect when disabled
+	//nolint:staticcheck
 	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo, Prune: false})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	require.FileExists(t, oldDanglingObjFile, "blob should not be removed from object storage as it was modified less then 2 weeks ago")
 
 	// Prune option has effect when enabled
+	//nolint:staticcheck
 	c, err = client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo, Prune: true})
 	require.NoError(t, err)
 	require.NotNil(t, c)
@@ -140,6 +144,7 @@ func TestGarbageCollectLogStatistics(t *testing.T) {
 	logger, hook := test.NewNullLogger()
 	_, repo, _, client := setupRepositoryService(ctx, t, testserver.WithLogger(logger))
 
+	//nolint:staticcheck
 	_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 	require.NoError(t, err)
 
@@ -172,6 +177,7 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 	deleteLockPath := filepath.Join(refsPath, "heads", "deletethis.lock")
 	mustCreateFileWithTimes(t, deleteLockPath, oldTime)
 
+	//nolint:staticcheck
 	c, err := client.GarbageCollect(ctx, req)
 	testhelper.RequireGrpcCode(t, err, codes.Internal)
 	require.Contains(t, err.Error(), "GarbageCollect: cmd wait")
@@ -232,6 +238,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 				mustCreateFileWithTimes(t, lockPath, *tc.lockTime)
 			}
 
+			//nolint:staticcheck
 			c, err := client.GarbageCollect(ctx, req)
 
 			// Sanity checks
@@ -268,11 +275,13 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 	} {
 		lockPath := filepath.Join(repoPath, tc)
 		// No file on the lock path
+		//nolint:staticcheck
 		_, err := client.GarbageCollect(ctx, req)
 		assert.NoError(t, err)
 
 		// Fresh lock should remain
 		mustCreateFileWithTimes(t, lockPath, freshTime)
+		//nolint:staticcheck
 		_, err = client.GarbageCollect(ctx, req)
 
 		assert.NoError(t, err)
@@ -281,6 +290,7 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 
 		// Old lock should be removed
 		mustCreateFileWithTimes(t, lockPath, oldTime)
+		//nolint:staticcheck
 		_, err = client.GarbageCollect(ctx, req)
 		assert.NoError(t, err)
 		require.NoFileExists(t, lockPath)
@@ -324,6 +334,7 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 				mustCreateFileWithTimes(t, packedRefsNewPath, *tc.lockTime)
 			}
 
+			//nolint:staticcheck
 			c, err := client.GarbageCollect(ctx, req)
 
 			if tc.shouldExist {
@@ -359,6 +370,7 @@ func TestGarbageCollectFailure(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%v", test.repo), func(t *testing.T) {
+			//nolint:staticcheck
 			_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: test.repo})
 			testhelper.RequireGrpcCode(t, err, test.code)
 		})
@@ -430,6 +442,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 
 			// Perform the request
 			req := &gitalypb.GarbageCollectRequest{Repository: repo}
+			//nolint:staticcheck
 			_, err := client.GarbageCollect(ctx, req)
 			require.NoError(t, err)
 
@@ -466,6 +479,7 @@ func TestGarbageCollectDeltaIslands(t *testing.T) {
 	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
+		//nolint:staticcheck
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 		return err
 	})

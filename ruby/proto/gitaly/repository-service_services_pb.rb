@@ -15,10 +15,15 @@ module Gitaly
       self.service_name = 'gitaly.RepositoryService'
 
       rpc :RepositoryExists, ::Gitaly::RepositoryExistsRequest, ::Gitaly::RepositoryExistsResponse
+      # RepackIncremental is deprecated in favor of OptimizeRepository.
       rpc :RepackIncremental, ::Gitaly::RepackIncrementalRequest, ::Gitaly::RepackIncrementalResponse
+      # RepackFull is deprecated in favor of OptimizeRepository.
       rpc :RepackFull, ::Gitaly::RepackFullRequest, ::Gitaly::RepackFullResponse
+      # MidxRepack is deprecated in favor of OptimizeRepository.
       rpc :MidxRepack, ::Gitaly::MidxRepackRequest, ::Gitaly::MidxRepackResponse
+      # GarbageCollect is deprecated in favor of OptimizeRepository.
       rpc :GarbageCollect, ::Gitaly::GarbageCollectRequest, ::Gitaly::GarbageCollectResponse
+      # WriteCommitGraph is deprecated in favor of OptimizeRepository.
       rpc :WriteCommitGraph, ::Gitaly::WriteCommitGraphRequest, ::Gitaly::WriteCommitGraphResponse
       rpc :RepositorySize, ::Gitaly::RepositorySizeRequest, ::Gitaly::RepositorySizeResponse
       rpc :ApplyGitattributes, ::Gitaly::ApplyGitattributesRequest, ::Gitaly::ApplyGitattributesResponse
@@ -52,6 +57,7 @@ module Gitaly
       rpc :FindLicense, ::Gitaly::FindLicenseRequest, ::Gitaly::FindLicenseResponse
       rpc :GetInfoAttributes, ::Gitaly::GetInfoAttributesRequest, stream(::Gitaly::GetInfoAttributesResponse)
       rpc :CalculateChecksum, ::Gitaly::CalculateChecksumRequest, ::Gitaly::CalculateChecksumResponse
+      # Cleanup is deprecated in favor of OptimizeRepository.
       rpc :Cleanup, ::Gitaly::CleanupRequest, ::Gitaly::CleanupResponse
       rpc :GetSnapshot, ::Gitaly::GetSnapshotRequest, stream(::Gitaly::GetSnapshotResponse)
       rpc :CreateRepositoryFromSnapshot, ::Gitaly::CreateRepositoryFromSnapshotRequest, ::Gitaly::CreateRepositoryFromSnapshotResponse

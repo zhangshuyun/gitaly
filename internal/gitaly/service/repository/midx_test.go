@@ -30,6 +30,7 @@ func TestMidxWrite(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
+	//nolint:staticcheck
 	_, err := client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repo})
 	assert.NoError(t, err)
 
@@ -58,6 +59,7 @@ func TestMidxRewrite(t *testing.T) {
 	require.NoError(t, err)
 	mt := info.ModTime()
 
+	//nolint:staticcheck
 	_, err = client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repo})
 	require.NoError(t, err)
 
@@ -88,6 +90,7 @@ func TestMidxRepack(t *testing.T) {
 		"New pack files should have been created",
 	)
 
+	//nolint:staticcheck
 	_, err = client.MidxRepack(
 		ctx,
 		&gitalypb.MidxRepackRequest{
@@ -126,6 +129,7 @@ func TestMidxRepack_transactional(t *testing.T) {
 	})
 	ctx = metadata.IncomingToOutgoing(ctx)
 
+	//nolint:staticcheck
 	_, err = client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{
 		Repository: repo,
 	})
@@ -173,6 +177,7 @@ func TestMidxRepackExpire(t *testing.T) {
 					}
 					i++
 
+					//nolint:staticcheck
 					_, err := client.MidxRepack(
 						ctx,
 						&gitalypb.MidxRepackRequest{
@@ -236,6 +241,7 @@ func addPackFiles(
 	t.Helper()
 
 	// do a full repack to ensure we start with 1 pack
+	//nolint:staticcheck
 	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo, CreateBitmap: true})
 	require.NoError(t, err)
 
@@ -246,6 +252,7 @@ func addPackFiles(
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(branch), gittest.WithBranch(branch))
 		}
 
+		//nolint:staticcheck
 		_, err = client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
 		require.NoError(t, err)
 	}

@@ -234,6 +234,7 @@ func (dr defaultReplicator) GarbageCollect(ctx context.Context, event datastore.
 
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
+	//nolint:staticcheck
 	if _, err := repoSvcClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
 		Repository:   targetRepo,
 		CreateBitmap: createBitmap,
@@ -253,6 +254,7 @@ func (dr defaultReplicator) RepackIncremental(ctx context.Context, event datasto
 
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
+	//nolint:staticcheck
 	_, err := repoSvcClient.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{
 		Repository: targetRepo,
 	})
@@ -268,6 +270,7 @@ func (dr defaultReplicator) Cleanup(ctx context.Context, event datastore.Replica
 
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
+	//nolint:staticcheck
 	_, err := repoSvcClient.Cleanup(ctx, &gitalypb.CleanupRequest{
 		Repository: targetRepo,
 	})
@@ -283,6 +286,7 @@ func (dr defaultReplicator) PackRefs(ctx context.Context, event datastore.Replic
 
 	refSvcClient := gitalypb.NewRefServiceClient(targetCC)
 
+	//nolint:staticcheck
 	if _, err := refSvcClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
 		Repository: targetRepo,
 	}); err != nil {
@@ -318,6 +322,7 @@ func (dr defaultReplicator) WriteCommitGraph(ctx context.Context, event datastor
 
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
+	//nolint:staticcheck
 	if _, err := repoSvcClient.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    targetRepo,
 		SplitStrategy: splitStrategy,
@@ -336,6 +341,7 @@ func (dr defaultReplicator) MidxRepack(ctx context.Context, event datastore.Repl
 
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
+	//nolint:staticcheck
 	if _, err := repoSvcClient.MidxRepack(ctx, &gitalypb.MidxRepackRequest{
 		Repository: targetRepo,
 	}); err != nil {
@@ -392,6 +398,7 @@ func (dr defaultReplicator) RepackFull(ctx context.Context, event datastore.Repl
 
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
+	//nolint:staticcheck
 	if _, err := repoSvcClient.RepackFull(ctx, &gitalypb.RepackFullRequest{
 		Repository:   targetRepo,
 		CreateBitmap: createBitmap,

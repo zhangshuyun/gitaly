@@ -41,6 +41,8 @@ type RefServiceClient interface {
 	// which has no signature, but its unsigned contents will still be returned.
 	GetTagSignatures(ctx context.Context, in *GetTagSignaturesRequest, opts ...grpc.CallOption) (RefService_GetTagSignaturesClient, error)
 	GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error)
+	// Deprecated: Do not use.
+	// PackRefs is deprecated in favor of OptimizeRepository.
 	PackRefs(ctx context.Context, in *PackRefsRequest, opts ...grpc.CallOption) (*PackRefsResponse, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
@@ -425,6 +427,7 @@ func (x *refServiceGetTagMessagesClient) Recv() (*GetTagMessagesResponse, error)
 	return m, nil
 }
 
+// Deprecated: Do not use.
 func (c *refServiceClient) PackRefs(ctx context.Context, in *PackRefsRequest, opts ...grpc.CallOption) (*PackRefsResponse, error) {
 	out := new(PackRefsResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RefService/PackRefs", in, out, opts...)
@@ -502,6 +505,8 @@ type RefServiceServer interface {
 	// which has no signature, but its unsigned contents will still be returned.
 	GetTagSignatures(*GetTagSignaturesRequest, RefService_GetTagSignaturesServer) error
 	GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error
+	// Deprecated: Do not use.
+	// PackRefs is deprecated in favor of OptimizeRepository.
 	PackRefs(context.Context, *PackRefsRequest) (*PackRefsResponse, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is

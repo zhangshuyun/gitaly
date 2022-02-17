@@ -354,6 +354,7 @@ func TestRejectBadStorage(t *testing.T) {
 		},
 	}
 
+	//nolint:staticcheck
 	_, err := gitalypb.NewRepositoryServiceClient(cc).GarbageCollect(ctx, req)
 	require.Error(t, err, status.New(codes.InvalidArgument, "repo scoped: invalid Repository"))
 }
