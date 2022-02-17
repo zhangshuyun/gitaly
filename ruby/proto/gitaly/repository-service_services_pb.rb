@@ -68,7 +68,7 @@ module Gitaly
       rpc :RenameRepository, ::Gitaly::RenameRepositoryRequest, ::Gitaly::RenameRepositoryResponse
       rpc :ReplicateRepository, ::Gitaly::ReplicateRepositoryRequest, ::Gitaly::ReplicateRepositoryResponse
       rpc :OptimizeRepository, ::Gitaly::OptimizeRepositoryRequest, ::Gitaly::OptimizeRepositoryResponse
-      # PruneUnreachableObjetcs will prune all objects which aren't reachable from
+      # PruneUnreachableObjects will prune all objects which aren't reachable from
       # the repository's current set of references. Because pruning can only
       # happen for objects which aren't packed, you are required to first run
       # OptimizeRepository to explode any unreachable objects into loose objects.

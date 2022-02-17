@@ -72,7 +72,7 @@ type RepositoryServiceClient interface {
 	RenameRepository(ctx context.Context, in *RenameRepositoryRequest, opts ...grpc.CallOption) (*RenameRepositoryResponse, error)
 	ReplicateRepository(ctx context.Context, in *ReplicateRepositoryRequest, opts ...grpc.CallOption) (*ReplicateRepositoryResponse, error)
 	OptimizeRepository(ctx context.Context, in *OptimizeRepositoryRequest, opts ...grpc.CallOption) (*OptimizeRepositoryResponse, error)
-	// PruneUnreachableObjetcs will prune all objects which aren't reachable from
+	// PruneUnreachableObjects will prune all objects which aren't reachable from
 	// the repository's current set of references. Because pruning can only
 	// happen for objects which aren't packed, you are required to first run
 	// OptimizeRepository to explode any unreachable objects into loose objects.
@@ -830,7 +830,7 @@ type RepositoryServiceServer interface {
 	RenameRepository(context.Context, *RenameRepositoryRequest) (*RenameRepositoryResponse, error)
 	ReplicateRepository(context.Context, *ReplicateRepositoryRequest) (*ReplicateRepositoryResponse, error)
 	OptimizeRepository(context.Context, *OptimizeRepositoryRequest) (*OptimizeRepositoryResponse, error)
-	// PruneUnreachableObjetcs will prune all objects which aren't reachable from
+	// PruneUnreachableObjects will prune all objects which aren't reachable from
 	// the repository's current set of references. Because pruning can only
 	// happen for objects which aren't packed, you are required to first run
 	// OptimizeRepository to explode any unreachable objects into loose objects.
