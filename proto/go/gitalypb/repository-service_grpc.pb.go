@@ -71,6 +71,12 @@ type RepositoryServiceClient interface {
 	RemoveRepository(ctx context.Context, in *RemoveRepositoryRequest, opts ...grpc.CallOption) (*RemoveRepositoryResponse, error)
 	RenameRepository(ctx context.Context, in *RenameRepositoryRequest, opts ...grpc.CallOption) (*RenameRepositoryResponse, error)
 	ReplicateRepository(ctx context.Context, in *ReplicateRepositoryRequest, opts ...grpc.CallOption) (*ReplicateRepositoryResponse, error)
+	// OptimizeRepository performs all maintenance tasks in a repository to keep
+	// it in an efficient state. It cleans up stale data, repacks objects,
+	// updates auxiliary caches like commit-graphs and packs references. The
+	// optimizations performed are based on heuristics and will adapt to the
+	// repository's size. This RPC call is designed as a black-box such that
+	// Gitaly has complete control of the on-disk state of repositories.
 	OptimizeRepository(ctx context.Context, in *OptimizeRepositoryRequest, opts ...grpc.CallOption) (*OptimizeRepositoryResponse, error)
 	// PruneUnreachableObjects will prune all objects which aren't reachable from
 	// the repository's current set of references. Because pruning can only
@@ -829,6 +835,12 @@ type RepositoryServiceServer interface {
 	RemoveRepository(context.Context, *RemoveRepositoryRequest) (*RemoveRepositoryResponse, error)
 	RenameRepository(context.Context, *RenameRepositoryRequest) (*RenameRepositoryResponse, error)
 	ReplicateRepository(context.Context, *ReplicateRepositoryRequest) (*ReplicateRepositoryResponse, error)
+	// OptimizeRepository performs all maintenance tasks in a repository to keep
+	// it in an efficient state. It cleans up stale data, repacks objects,
+	// updates auxiliary caches like commit-graphs and packs references. The
+	// optimizations performed are based on heuristics and will adapt to the
+	// repository's size. This RPC call is designed as a black-box such that
+	// Gitaly has complete control of the on-disk state of repositories.
 	OptimizeRepository(context.Context, *OptimizeRepositoryRequest) (*OptimizeRepositoryResponse, error)
 	// PruneUnreachableObjects will prune all objects which aren't reachable from
 	// the repository's current set of references. Because pruning can only

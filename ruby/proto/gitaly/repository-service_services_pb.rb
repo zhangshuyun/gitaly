@@ -67,6 +67,12 @@ module Gitaly
       rpc :RemoveRepository, ::Gitaly::RemoveRepositoryRequest, ::Gitaly::RemoveRepositoryResponse
       rpc :RenameRepository, ::Gitaly::RenameRepositoryRequest, ::Gitaly::RenameRepositoryResponse
       rpc :ReplicateRepository, ::Gitaly::ReplicateRepositoryRequest, ::Gitaly::ReplicateRepositoryResponse
+      # OptimizeRepository performs all maintenance tasks in a repository to keep
+      # it in an efficient state. It cleans up stale data, repacks objects,
+      # updates auxiliary caches like commit-graphs and packs references. The
+      # optimizations performed are based on heuristics and will adapt to the
+      # repository's size. This RPC call is designed as a black-box such that
+      # Gitaly has complete control of the on-disk state of repositories.
       rpc :OptimizeRepository, ::Gitaly::OptimizeRepositoryRequest, ::Gitaly::OptimizeRepositoryResponse
       # PruneUnreachableObjects will prune all objects which aren't reachable from
       # the repository's current set of references. Because pruning can only
