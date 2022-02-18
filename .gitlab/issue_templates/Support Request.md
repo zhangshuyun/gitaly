@@ -1,4 +1,4 @@
-# Support Request from the Gitaly Team
+# Support Request for the Gitaly Team
 
 <!--
 
@@ -8,7 +8,7 @@ As we collaborate on resolution of this issue, the Gitaly team will attempt to u
 
 -->
 
-_The goal is to keep these requests public. However, if customer information is required to the support request, please be sure to mark this issue as confidential.__
+_The goal is to keep these requests public. However, if customer information is required to the support request, please be sure to mark this issue as confidential._
 
 ## Customer Information
 
