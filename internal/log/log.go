@@ -9,6 +9,7 @@ import (
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/env"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/stats"
@@ -21,6 +22,9 @@ const (
 	LogTimestampFormat = "2006-01-02T15:04:05.000"
 	// LogTimestampFormatUTC defines the utc timestamp format in log files
 	LogTimestampFormatUTC = "2006-01-02T15:04:05.000Z"
+
+	defaultLogRequestMethodAllowPattern = ""
+	defaultLogRequestMethodDenyPattern  = "^/grpc.health.v1.Health/Check$"
 )
 
 type utcFormatter struct {
@@ -116,7 +120,9 @@ func DeciderOption() grpcmwlogrus.Option {
 }
 
 func methodNameMatcherFromEnv() func(string) bool {
-	if pattern := os.Getenv("GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN"); pattern != "" {
+	if pattern :=
+		env.GetString("GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN",
+			defaultLogRequestMethodAllowPattern); pattern != "" {
 		methodRegex := regexp.MustCompile(pattern)
 
 		return func(fullMethodName string) bool {
@@ -124,7 +130,9 @@ func methodNameMatcherFromEnv() func(string) bool {
 		}
 	}
 
-	if pattern := os.Getenv("GITALY_LOG_REQUEST_METHOD_DENY_PATTERN"); pattern != "" {
+	if pattern :=
+		env.GetString("GITALY_LOG_REQUEST_METHOD_DENY_PATTERN",
+			defaultLogRequestMethodDenyPattern); pattern != "" {
 		methodRegex := regexp.MustCompile(pattern)
 
 		return func(fullMethodName string) bool {
