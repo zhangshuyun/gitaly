@@ -50,7 +50,11 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 		git.SubSubCmd{
 			Name:   "bundle",
 			Action: "create",
-			Flags:  []git.Option{git.OutputToStdout, git.Flag{Name: "--stdin"}},
+			Flags: []git.Option{
+				git.OutputToStdout,
+				git.Flag{Name: "--ignore-missing"},
+				git.Flag{Name: "--stdin"},
+			},
 		},
 		git.WithStdin(reader),
 		git.WithStderr(&stderr),
