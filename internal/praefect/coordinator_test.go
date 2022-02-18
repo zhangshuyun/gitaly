@@ -189,7 +189,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 			}
 
 			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
-			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
+			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
 			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 				assert.True(t, len(queueInterceptor.GetEnqueued()) < 2, "expected only one event to be created")
 				return queue.Enqueue(ctx, event)
@@ -322,8 +322,13 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 
 	txMgr := transactions.NewManager(conf)
 
+	db := testdb.New(t)
+	require.NoError(t, datastore.NewPostgresRepositoryStore(db, conf.StorageNames()).
+		CreateRepository(ctx, 1, repo.GetStorageName(), repo.GetRelativePath(), repo.GetRelativePath(), "primary", []string{"secondary"}, nil, true, false),
+	)
+
 	coordinator := NewCoordinator(
-		datastore.NewPostgresReplicationEventQueue(testdb.New(t)),
+		datastore.NewPostgresReplicationEventQueue(db),
 		rs,
 		NewNodeManagerRouter(nodeMgr, rs),
 		txMgr,
@@ -869,7 +874,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 					assert.Equal(t, []string{unhealthySecondaryNode.Storage}, outdatedSecondaries)
 					assert.Equal(t, tc.primaryStored, storePrimary)
 					assert.Equal(t, tc.assignmentsStored, storeAssignments)
-					return nil
+					return datastore.NewPostgresRepositoryStore(db, conf.StorageNames()).CreateRepository(ctx, repoID, virtualStorage, relativePath, replicaPath, primary, updatedSecondaries, outdatedSecondaries, storePrimary, storeAssignments)
 				},
 			}
 
@@ -1078,7 +1083,8 @@ func TestAbsentCorrelationID(t *testing.T) {
 		},
 	}
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
+	db := testdb.New(t)
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		assert.True(t, len(queueInterceptor.GetEnqueued()) < 2, "expected only one event to be created")
 		return queue.Enqueue(ctx, event)
@@ -1097,7 +1103,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 	defer nodeMgr.Stop()
 
 	txMgr := transactions.NewManager(conf)
-	rs := datastore.MockRepositoryStore{}
+	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 
 	coordinator := NewCoordinator(
 		queueInterceptor,
@@ -1553,7 +1559,14 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				})
 			}
 
+			db := testdb.New(t)
+			queue := datastore.NewPostgresReplicationEventQueue(db)
+			require.NoError(t, datastore.NewPostgresRepositoryStore(db, praefectConfig.StorageNames()).
+				CreateRepository(ctx, 1, testhelper.DefaultStorageName, repoProto.GetRelativePath(), repoProto.GetRelativePath(), repoProto.GetStorageName(), nil, nil, true, false),
+			)
+
 			praefectConn, _, cleanup := runPraefectServer(t, ctx, praefectConfig, buildOptions{
+				withQueue: queue,
 				// Set up a mock manager which sets up primary/secondaries and pretends that all nodes are
 				// healthy. We need fixed roles and unhealthy nodes will not take part in transactions.
 				withNodeMgr: &nodes.MockManager{
@@ -1569,7 +1582,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 						}, nil
 					},
 				},
-				// Set up a mock repsoitory store pretending that all nodes are consistent. Only consistent
+				// Set up a mock repository store pretending that all nodes are consistent. Only consistent
 				// nodes will take part in transactions.
 				withRepoStore: datastore.MockRepositoryStore{
 					GetReplicaPathFunc: func(ctx context.Context, repositoryID int64) (string, error) {

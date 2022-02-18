@@ -56,6 +56,8 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 }
 
 func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
+	db := testdb.New(t)
+
 	primaryCfg, testRepoProto, testRepoPath := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	testRepo := localrepo.NewTestRepo(t, primaryCfg, testRepoProto)
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
@@ -155,7 +157,10 @@ func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 	logger := testhelper.NewDiscardingLogger(t)
 	loggerHook := test.NewLocal(logger)
 
-	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
+	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+	require.NoError(t, rs.CreateRepository(ctx, repositoryID, conf.VirtualStorages[0].Name, testRepo.GetRelativePath(), testRepo.GetRelativePath(), shard.Primary.GetStorage(), nil, nil, true, false))
+
+	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 	queue.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
 		cancel() // when it is called we know that replication is finished
 		return queue.Acknowledge(ctx, state, ids)
@@ -164,10 +169,6 @@ func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
 	loggerEntry := logger.WithField("test", t.Name())
 	_, err = queue.Enqueue(ctx, events[0])
 	require.NoError(t, err)
-
-	db := testdb.New(t)
-	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-	require.NoError(t, rs.CreateRepository(ctx, repositoryID, conf.VirtualStorages[0].Name, testRepo.GetRelativePath(), testRepo.GetRelativePath(), shard.Primary.GetStorage(), nil, nil, true, false))
 
 	replMgr := NewReplMgr(
 		loggerEntry,
@@ -282,6 +283,8 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 
 func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	t.Parallel()
+	db := testdb.New(t)
+
 	primaryStorage, secondaryStorage := "internal-gitaly-0", "internal-gitaly-1"
 
 	primCfg := testcfg.Build(t, testcfg.WithStorages(primaryStorage))
@@ -315,7 +318,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	// unlinkat /tmp/gitaly-222007427/381349228/storages.d/internal-gitaly-1/+gitaly/state/path/to/repo: directory not empty
 	// By using WaitGroup we are sure the test cleanup will be started after all replication
 	// requests are completed, so no running cache IO operations happen.
-	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
+	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 	var wg sync.WaitGroup
 	queue.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 		wg.Add(1)
@@ -375,6 +378,9 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 		StorageName:  conf.VirtualStorages[0].Name,
 		RelativePath: repositoryRelativePath,
 	}
+	// We need to create repository record in the database before we can schedule replication events
+	repoStore := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+	require.NoError(t, repoStore.CreateRepository(ctx, 1, conf.VirtualStorages[0].Name, repository.GetRelativePath(), repository.GetRelativePath(), repository.GetStorageName(), nil, nil, true, false))
 
 	//nolint:staticcheck
 	_, err = repositoryClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
@@ -685,6 +691,10 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 }
 
 func testProcessBacklogFailedJobs(t *testing.T, ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	t.Cleanup(cancel)
+	db := testdb.New(t)
+
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("default"))
 	primaryAddr := testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
@@ -714,26 +724,30 @@ func testProcessBacklogFailedJobs(t *testing.T, ctx context.Context) {
 			},
 		},
 	}
-	ctx, cancel := context.WithCancel(ctx)
-
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
 
 	// this job exists to verify that replication works
 	okJob := datastore.ReplicationJob{
-		RepositoryID:      1,
-		Change:            datastore.UpdateRepo,
+		RepositoryID: 1,
+		// The optimize_repository is used because we can't use update type.
+		// All update events won't be picked as they will be marked as done once the first is over.
+		Change:            datastore.OptimizeRepository,
 		RelativePath:      testRepo.RelativePath,
 		TargetNodeStorage: secondary.Storage,
-		SourceNodeStorage: primary.Storage,
 		VirtualStorage:    "praefect",
 	}
+
+	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+	require.NoError(t, rs.CreateRepository(ctx, okJob.RepositoryID, okJob.VirtualStorage, okJob.RelativePath, okJob.RelativePath, okJob.SourceNodeStorage, nil, nil, true, false))
+
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 	event1, err := queueInterceptor.Enqueue(ctx, datastore.ReplicationEvent{Job: okJob})
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), event1.ID)
 
-	// this job checks flow for replication event that fails
+	// this job checks flow for replication event that fails because of not existing source storage
 	failJob := okJob
-	failJob.Change = "invalid-operation"
+	failJob.Change = datastore.UpdateRepo
+	failJob.SourceNodeStorage = "invalid"
 	event2, err := queueInterceptor.Enqueue(ctx, datastore.ReplicationEvent{Job: failJob})
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), event2.ID)
@@ -744,10 +758,6 @@ func testProcessBacklogFailedJobs(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
-
-	db := testdb.New(t)
-	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-	require.NoError(t, rs.CreateRepository(ctx, okJob.RepositoryID, okJob.VirtualStorage, okJob.RelativePath, okJob.RelativePath, okJob.SourceNodeStorage, nil, nil, true, false))
 
 	replMgr := NewReplMgr(
 		logEntry,
@@ -792,6 +802,8 @@ func TestProcessBacklog_Success(t *testing.T) {
 
 func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
+	t.Cleanup(cancel)
+	db := testdb.New(t)
 
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
@@ -825,7 +837,7 @@ func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
 		},
 	}
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 	queueInterceptor.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
 		ackIDs, err := queue.Acknowledge(ctx, state, ids)
 		if len(ids) > 0 {
@@ -854,6 +866,9 @@ func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
 		},
 	}
 
+	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+	require.NoError(t, rs.CreateRepository(ctx, eventType1.Job.RepositoryID, eventType1.Job.VirtualStorage, eventType1.Job.VirtualStorage, eventType1.Job.RelativePath, eventType1.Job.SourceNodeStorage, nil, nil, true, false))
+
 	_, err := queueInterceptor.Enqueue(ctx, eventType1)
 	require.NoError(t, err)
 
@@ -869,6 +884,7 @@ func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
 	// Rename replication job
 	eventType2 := datastore.ReplicationEvent{
 		Job: datastore.ReplicationJob{
+			RepositoryID:      1,
 			Change:            datastore.RenameRepo,
 			RelativePath:      testRepo.GetRelativePath(),
 			TargetNodeStorage: secondary.Storage,
@@ -884,6 +900,7 @@ func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
 	// Rename replication job
 	eventType3 := datastore.ReplicationEvent{
 		Job: datastore.ReplicationJob{
+			RepositoryID:      1,
 			Change:            datastore.RenameRepo,
 			RelativePath:      renameTo1,
 			TargetNodeStorage: secondary.Storage,
@@ -903,10 +920,6 @@ func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 	defer nodeMgr.Stop()
-
-	db := testdb.New(t)
-	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-	require.NoError(t, rs.CreateRepository(ctx, eventType1.Job.RepositoryID, eventType1.Job.VirtualStorage, eventType1.Job.VirtualStorage, eventType1.Job.RelativePath, eventType1.Job.SourceNodeStorage, nil, nil, true, false))
 
 	replMgr := NewReplMgr(
 		logEntry,
@@ -934,6 +947,7 @@ func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
 
 func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 	t.Parallel()
+	db := testdb.New(t)
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{
@@ -951,7 +965,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 
 	var mtx sync.Mutex
 	expStorages := map[string]bool{conf.VirtualStorages[0].Nodes[0].Storage: true, conf.VirtualStorages[0].Nodes[2].Storage: true}
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 	queueInterceptor.OnDequeue(func(_ context.Context, virtualStorageName string, storageName string, _ int, _ datastore.ReplicationEventQueue) ([]datastore.ReplicationEvent, error) {
 		select {
 		case <-ctx.Done():
@@ -1012,6 +1026,8 @@ func (m mockReplicator) Replicate(ctx context.Context, event datastore.Replicati
 func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
+	t.Cleanup(cancel)
+	db := testdb.New(t)
 
 	const virtualStorage = "virtal-storage"
 	const primaryStorage = "storage-1"
@@ -1033,7 +1049,10 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 		},
 	}
 
-	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
+	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
+	require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, "ignored", "ignored", primaryStorage, []string{secondaryStorage}, nil, true, false))
+
+	queue := datastore.NewPostgresReplicationEventQueue(db)
 	_, err := queue.Enqueue(ctx, datastore.ReplicationEvent{
 		Job: datastore.ReplicationJob{
 			RepositoryID:      1,
@@ -1045,10 +1064,6 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-
-	db := testdb.New(t)
-	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-	require.NoError(t, rs.CreateRepository(ctx, repositoryID, virtualStorage, "ignored", "ignored", primaryStorage, []string{secondaryStorage}, nil, true, false))
 
 	replMgr := NewReplMgr(
 		testhelper.NewDiscardingLogEntry(t),

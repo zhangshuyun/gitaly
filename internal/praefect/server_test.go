@@ -521,7 +521,14 @@ func TestRemoveRepository(t *testing.T) {
 
 	verifyReposExistence(t, codes.OK)
 
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
+	virtualRepo := proto.Clone(repos[0][0]).(*gitalypb.Repository)
+	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
+
+	db := testdb.New(t)
+	repositoryStore := datastore.NewPostgresRepositoryStore(db, praefectCfg.StorageNames())
+	require.NoError(t, repositoryStore.CreateRepository(ctx, 1, virtualRepo.GetStorageName(), virtualRepo.GetRelativePath(), virtualRepo.GetRelativePath(), gitalyCfgs[0].Storages[0].Name, nil, nil, true, false))
+
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 	repoStore := defaultRepoStore(praefectCfg)
 	txMgr := defaultTxMgr(praefectCfg)
 	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), praefectCfg, nil,
@@ -541,14 +548,14 @@ func TestRemoveRepository(t *testing.T) {
 			GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
 				return relativePath, nil, nil
 			},
+			GetRepositoryIDFunc: func(ctx context.Context, virtualStorage, relativePath string) (int64, error) {
+				return repositoryStore.GetRepositoryID(ctx, virtualStorage, relativePath)
+			},
 		},
 		withNodeMgr: nodeMgr,
 		withTxMgr:   txMgr,
 	})
 	defer cleanup()
-
-	virtualRepo := proto.Clone(repos[0][0]).(*gitalypb.Repository)
-	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
 
 	_, err = gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
 		Repository: virtualRepo,
@@ -616,30 +623,28 @@ func TestRenameRepository(t *testing.T) {
 		repoPaths[i] = filepath.Join(gitalyCfg.Storages[0].Path, relativePath)
 	}
 
-	evq := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(testdb.New(t)))
+	db := testdb.New(t)
+	evq := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 
-	tx := testdb.New(t).Begin(t)
-	defer tx.Rollback(t)
-
-	rs := datastore.NewPostgresRepositoryStore(tx, nil)
+	rs := datastore.NewPostgresRepositoryStore(db, nil)
 	require.NoError(t, rs.CreateRepository(ctx, 1, "praefect", repo.RelativePath, repo.RelativePath, "gitaly-1", []string{"gitaly-2", "gitaly-3"}, nil, true, false))
 
 	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, nil, nil)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
-	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": praefectCfg.StorageNames()})
+	testdb.SetHealthyNodes(t, ctx, db, map[string]map[string][]string{"praefect": praefectCfg.StorageNames()})
 
 	cc, _, cleanup := runPraefectServer(t, ctx, praefectCfg, buildOptions{
 		withQueue:     evq,
 		withRepoStore: rs,
 		withRouter: NewPerRepositoryRouter(
 			nodeSet.Connections(),
-			nodes.NewPerRepositoryElector(tx),
+			nodes.NewPerRepositoryElector(db),
 			StaticHealthChecker(praefectCfg.StorageNames()),
 			NewLockedRandom(rand.New(rand.NewSource(0))),
 			rs,
-			datastore.NewAssignmentStore(tx, praefectCfg.StorageNames()),
+			datastore.NewAssignmentStore(db, praefectCfg.StorageNames()),
 			rs,
 			nil,
 		),

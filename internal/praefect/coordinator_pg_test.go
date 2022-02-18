@@ -191,18 +191,11 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 
 			txMgr := transactions.NewManager(conf)
 
-			tx := db.Begin(t)
-			defer tx.Rollback(t)
-
 			// set up the generations prior to transaction
-			rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
+			rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 
 			repoCreated := false
 			for i, n := range tc.nodes {
-				if n.generation == datastore.GenerationUnknown {
-					continue
-				}
-
 				if !repoCreated {
 					repoCreated = true
 					require.NoError(t, rs.CreateRepository(ctx, 1, repo.StorageName, repo.RelativePath, repo.RelativePath, storageNodes[i].Storage, nil, nil, true, false))
@@ -211,7 +204,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				require.NoError(t, rs.SetGeneration(ctx, 1, storageNodes[i].Storage, repo.RelativePath, n.generation))
 			}
 
-			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": conf.StorageNames()})
+			testdb.SetHealthyNodes(t, ctx, db, map[string]map[string][]string{"praefect": conf.StorageNames()})
 
 			nodeSet, err := DialNodes(
 				ctx,
@@ -229,11 +222,11 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				rs,
 				NewPerRepositoryRouter(
 					nodeSet.Connections(),
-					nodes.NewPerRepositoryElector(tx),
+					nodes.NewPerRepositoryElector(db),
 					StaticHealthChecker(conf.StorageNames()),
 					NewLockedRandom(rand.New(rand.NewSource(0))),
 					rs,
-					datastore.NewAssignmentStore(tx, conf.StorageNames()),
+					datastore.NewAssignmentStore(db, conf.StorageNames()),
 					rs,
 					nil,
 				),
@@ -314,8 +307,6 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, n.expectedGeneration, gen, "node %d has wrong generation", i)
 			}
-
-			tx.Commit(t)
 
 			replicationWaitGroup.Wait()
 
