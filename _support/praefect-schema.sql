@@ -51,6 +51,28 @@ CREATE TYPE public.replication_job_state AS ENUM (
 
 
 --
+-- Name: replication_job_type; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.replication_job_type AS ENUM (
+    'update',
+    'create',
+    'delete',
+    'delete_replica',
+    'rename',
+    'gc',
+    'repack_full',
+    'repack_incremental',
+    'cleanup',
+    'pack_refs',
+    'write_commit_graph',
+    'midx_repack',
+    'optimize_repository',
+    'prune_unreachable_objects'
+);
+
+
+--
 -- Name: notify_on_change(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -92,6 +114,51 @@ CREATE FUNCTION public.notify_on_change() RETURNS trigger
 					RETURN NULL;
 				END;
 				$$;
+
+
+--
+-- Name: remove_queue_lock_on_repository_removal(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.remove_queue_lock_on_repository_removal() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+			BEGIN
+				DELETE FROM replication_queue_lock
+				WHERE id LIKE (OLD.virtual_storage || '|%|' || OLD.relative_path);
+				RETURN NULL;
+		    	END;
+			$$;
+
+
+--
+-- Name: replication_queue_flatten_job(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.replication_queue_flatten_job() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+			BEGIN
+				NEW.change := (NEW.job->>'change')::REPLICATION_JOB_TYPE;
+				NEW.repository_id := COALESCE(
+					-- For the old jobs the repository_id field may be 'null' or not set at all.
+					-- repository_id field could have 0 if event was created by reconciler before
+					-- repositories table was populated with valid repository_id.
+					CASE WHEN (NEW.job->>'repository_id')::BIGINT = 0 THEN NULL ELSE (NEW.job->>'repository_id')::BIGINT END,
+					(SELECT repositories.repository_id FROM repositories WHERE repositories.virtual_storage = NEW.job->>'virtual_storage' AND repositories.relative_path = NEW.job->>'relative_path'),
+					0
+				);
+				-- The reconciler doesn't populate replica_path field that is why we need make sure
+				-- we have at least an empty value for the column, not to break scan operations.
+				NEW.replica_path := COALESCE(NEW.job->>'replica_path', '');
+				NEW.relative_path := NEW.job->>'relative_path';
+				NEW.target_node_storage := NEW.job->>'target_node_storage';
+				NEW.source_node_storage := COALESCE(NEW.job->>'source_node_storage', '');
+				NEW.virtual_storage := NEW.job->>'virtual_storage';
+				NEW.params := (NEW.job->>'params')::JSONB;
+				RETURN NEW;
+			END;
+			$$;
 
 
 SET default_tablespace = '';
@@ -168,7 +235,15 @@ CREATE TABLE public.replication_queue (
     attempt integer DEFAULT 3 NOT NULL,
     lock_id text,
     job jsonb,
-    meta jsonb
+    meta jsonb,
+    change public.replication_job_type,
+    repository_id bigint DEFAULT 0 NOT NULL,
+    replica_path text DEFAULT ''::text NOT NULL,
+    relative_path text,
+    target_node_storage text,
+    source_node_storage text DEFAULT ''::text NOT NULL,
+    virtual_storage text,
+    params jsonb
 );
 
 
@@ -361,8 +436,8 @@ CREATE VIEW public.valid_primaries AS
              JOIN public.healthy_storages USING (virtual_storage, storage))
              LEFT JOIN public.repository_assignments USING (repository_id, storage))
           WHERE (NOT (EXISTS ( SELECT
-                   FROM public.replication_queue
-                  WHERE ((replication_queue.state <> ALL (ARRAY['completed'::public.replication_job_state, 'dead'::public.replication_job_state, 'cancelled'::public.replication_job_state])) AND ((replication_queue.job ->> 'change'::text) = 'delete_replica'::text) AND (((replication_queue.job ->> 'repository_id'::text))::bigint = repositories.repository_id) AND ((replication_queue.job ->> 'target_node_storage'::text) = storage_repositories.storage)))))) candidates
+                   FROM public.replication_queue queue
+                  WHERE ((queue.state <> ALL (ARRAY['completed'::public.replication_job_state, 'dead'::public.replication_job_state, 'cancelled'::public.replication_job_state])) AND (queue.change = 'delete_replica'::public.replication_job_type) AND (queue.repository_id = storage_repositories.repository_id) AND (queue.target_node_storage = storage_repositories.storage)))))) candidates
   WHERE candidates.eligible;
 
 
@@ -496,14 +571,14 @@ ALTER TABLE ONLY public.virtual_storages
 -- Name: delete_replica_unique_index; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX delete_replica_unique_index ON public.replication_queue USING btree (((job ->> 'virtual_storage'::text)), ((job ->> 'relative_path'::text))) WHERE ((state <> ALL (ARRAY['completed'::public.replication_job_state, 'cancelled'::public.replication_job_state, 'dead'::public.replication_job_state])) AND ((job ->> 'change'::text) = 'delete_replica'::text));
+CREATE UNIQUE INDEX delete_replica_unique_index ON public.replication_queue USING btree (virtual_storage, relative_path) WHERE ((state <> ALL (ARRAY['completed'::public.replication_job_state, 'cancelled'::public.replication_job_state, 'dead'::public.replication_job_state])) AND (change = 'delete_replica'::public.replication_job_type));
 
 
 --
 -- Name: replication_queue_target_index; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX replication_queue_target_index ON public.replication_queue USING btree (((job ->> 'virtual_storage'::text)), ((job ->> 'relative_path'::text)), ((job ->> 'target_node_storage'::text)), ((job ->> 'change'::text))) WHERE (state <> ALL (ARRAY['completed'::public.replication_job_state, 'cancelled'::public.replication_job_state, 'dead'::public.replication_job_state]));
+CREATE INDEX replication_queue_target_index ON public.replication_queue USING btree (virtual_storage, relative_path, target_node_storage, change) WHERE (state <> ALL (ARRAY['completed'::public.replication_job_state, 'cancelled'::public.replication_job_state, 'dead'::public.replication_job_state]));
 
 
 --
@@ -559,7 +634,7 @@ CREATE UNIQUE INDEX storage_repositories_new_pkey ON public.storage_repositories
 -- Name: virtual_target_on_replication_queue_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX virtual_target_on_replication_queue_idx ON public.replication_queue USING btree (((job ->> 'virtual_storage'::text)), ((job ->> 'target_node_storage'::text)));
+CREATE INDEX virtual_target_on_replication_queue_idx ON public.replication_queue USING btree (virtual_storage, target_node_storage);
 
 
 --
@@ -591,11 +666,25 @@ CREATE TRIGGER notify_on_update AFTER UPDATE ON public.storage_repositories REFE
 
 
 --
+-- Name: repositories remove_queue_lock_on_repository_removal; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER remove_queue_lock_on_repository_removal AFTER DELETE ON public.repositories FOR EACH ROW EXECUTE PROCEDURE public.remove_queue_lock_on_repository_removal();
+
+
+--
+-- Name: replication_queue replication_queue_flatten_job; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER replication_queue_flatten_job BEFORE INSERT ON public.replication_queue FOR EACH ROW EXECUTE PROCEDURE public.replication_queue_flatten_job();
+
+
+--
 -- Name: replication_queue_job_lock replication_queue_job_lock_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.replication_queue_job_lock
-    ADD CONSTRAINT replication_queue_job_lock_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.replication_queue(id);
+    ADD CONSTRAINT replication_queue_job_lock_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.replication_queue(id) ON DELETE CASCADE;
 
 
 --
@@ -603,7 +692,15 @@ ALTER TABLE ONLY public.replication_queue_job_lock
 --
 
 ALTER TABLE ONLY public.replication_queue_job_lock
-    ADD CONSTRAINT replication_queue_job_lock_lock_id_fkey FOREIGN KEY (lock_id) REFERENCES public.replication_queue_lock(id);
+    ADD CONSTRAINT replication_queue_job_lock_lock_id_fkey FOREIGN KEY (lock_id) REFERENCES public.replication_queue_lock(id) ON DELETE CASCADE;
+
+
+--
+-- Name: replication_queue replication_queue_repository_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.replication_queue
+    ADD CONSTRAINT replication_queue_repository_id_fkey FOREIGN KEY (repository_id) REFERENCES public.repositories(repository_id) ON DELETE CASCADE;
 
 
 --
