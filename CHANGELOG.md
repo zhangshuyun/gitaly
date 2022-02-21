@@ -1,5 +1,68 @@
 # Gitaly changelog
 
+## 14.8.0 (2022-02-21)
+
+### Added (9 changes)
+
+- [repository: Add new RPC to prune unreachable objects](gitlab-org/gitaly@67c4cdb56adf78cdb9d54ca3de83c288e23ea3a2) ([merge request](gitlab-org/gitaly!4346))
+- [limithandler: Add metrics for queue limiting](gitlab-org/gitaly@605adfbce4dbac7ff0da69838b650fdb1f1fa244) ([merge request](gitlab-org/gitaly!4335))
+- [migrate: Add -verbose flag to sql-migrate](gitlab-org/gitaly@4bec9aff6e7277fe88150cc63e2cd08457102c3e) ([merge request](gitlab-org/gitaly!4308))
+- [Added json output for gitaly-backup](gitlab-org/gitaly@350edc8659c2ac106dc513e1868962a12ff53216) by @imskr ([merge request](gitlab-org/gitaly!4328))
+- [limithandler: enable max queue wait time](gitlab-org/gitaly@023fee7de6eb7ea428fb3e089bffabe51b8c05e7) ([merge request](gitlab-org/gitaly!4271))
+- [limithandler: add concurrency queue limit](gitlab-org/gitaly@b295404814cc5fa448b1d14b972e3085fbd7e366) ([merge request](gitlab-org/gitaly!4270))
+- [proto: Add detailed errors when updating references fails](gitlab-org/gitaly@8f703c99680d308506ca8b074b31a4162b409a3a) ([merge request](gitlab-org/gitaly!4262))
+- [feat: Detect SSH signed objects](gitlab-org/gitaly@2a502e8871c65114d034dbb3fbd9f6d85cf7b4fb) ([merge request](gitlab-org/gitaly!4255))
+- [cmd/praefect: Check of the system clock synchronization](gitlab-org/gitaly@fbd4cd10aa2682df1a9e1a3c85d9aab62e2d683d) ([merge request](gitlab-org/gitaly!4225))
+
+### Fixed (10 changes)
+
+- [Propagate NotFound error returned by GetRepoPath](gitlab-org/gitaly@c7cdd439f818126bf5ca1e3eae8c3e4637a0f7b2) ([merge request](gitlab-org/gitaly!4338))
+- [coordinator: Fix error comparison causing excessive replication jobs](gitlab-org/gitaly@a66be554b9ba7165a83995b385f063c48b08145a) ([merge request](gitlab-org/gitaly!4349))
+- [Handle CreateObjectPool as a repository creation RPC](gitlab-org/gitaly@d5fe17e1a6995d2d6b5fbaee2362c5b399a2e8ea) ([merge request](gitlab-org/gitaly!4325))
+- [Makefile: Use pkg-config if available to set LIBPCREDIR](gitlab-org/gitaly@a591bca7a8956867d001ff99d02ad67539645b1a) ([merge request](gitlab-org/gitaly!4321))
+- [demo: Fix deletion of Praefect Cloud SQL instance](gitlab-org/gitaly@b5e0045dbbd4b4ab1c0407ef26258dd4cf6b77df) ([merge request](gitlab-org/gitaly!4299))
+- [operations: Skip rebasing commits which become empty](gitlab-org/gitaly@f547b32bd995c12f74c490a1bd4bbe2675d0c7f2) ([merge request](gitlab-org/gitaly!4285))
+- [housekeeping: Fix pruning of "remote.*.prune" config key](gitlab-org/gitaly@9bccb32f14c44ab86a12c864ed27a67131a400c0) ([merge request](gitlab-org/gitaly!4284))
+- [operations: Always respect committer timezone in UserApplyPatch](gitlab-org/gitaly@00123991cdaba24ee62de43ee5d4c03875f517e8) ([merge request](gitlab-org/gitaly!4293))
+- [Shorten server keepalive period to 5 minutes](gitlab-org/gitaly@f9db4a19e84e3a0a7073f0f5aa72d42b325de244) ([merge request](gitlab-org/gitaly!4278))
+- [operations: Respect timezone of committer in UserApplyPatch](gitlab-org/gitaly@f3008d7a39f3c18cc44aa9f3b8e0ab4a6b786a0d) ([merge request](gitlab-org/gitaly!4274))
+
+### Changed (14 changes)
+
+- [Update actionpack and related Ruby gems](gitlab-org/gitaly@87a94651a233670ee62ed78d5b285a8225dde4f1) ([merge request](gitlab-org/gitaly!4347))
+- [ci: Upgrade CI images to Debian bullseye](gitlab-org/gitaly@7a62bd6a72123f7c36eb6bcedce6426d05f0eec6) ([merge request](gitlab-org/gitaly!4340))
+- [repository: Clean up worktrees in OptimizeRepository](gitlab-org/gitaly@9d5181b803f5f4720ded8e070db13d6c1fe73123) ([merge request](gitlab-org/gitaly!4332))
+- [repository: Use heuristic to pack refs in OptimizeRepository](gitlab-org/gitaly@7b82783b7bd75040708f8a9c01c14f2ac9516698) ([merge request](gitlab-org/gitaly!4332))
+- [repository: Use heuristic to prune objects in OptimizeRepository](gitlab-org/gitaly@ef53a8faf52c348009eb87728be2f6ff79e876a1) ([merge request](gitlab-org/gitaly!4332))
+- [repository: Use heuristic for incremental repacks in OptimizeRepository](gitlab-org/gitaly@0178ca158ea22e18bc79a775058a7bc78b702b61) ([merge request](gitlab-org/gitaly!4332))
+- [repository: Use heuristic for full repacks in OptimizeRepository](gitlab-org/gitaly@fb336f03024d99927804cc3781a55996ccd817ad) ([merge request](gitlab-org/gitaly!4332))
+- [migrate: Print execution time of migrations](gitlab-org/gitaly@7b8c6f3de1611849da863071ec4d183b12c9a381) ([merge request](gitlab-org/gitaly!4308))
+- [replicator: Log number of stale jobs deleted](gitlab-org/gitaly@f5ee88681f4c2f3ec034bf793c529706f4c261d8) ([merge request](gitlab-org/gitaly!4317))
+- [fetch: Stop writing FETCH_HEAD](gitlab-org/gitaly@26550500d2852c70a300f70100b58e8fe5d9936d) ([merge request](gitlab-org/gitaly!4305))
+- [config: Exclude DB metrics by default](gitlab-org/gitaly@22820f98ac055eab711e94922635f8c6bafe33d6) ([merge request](gitlab-org/gitaly!4300))
+- [hooks: Don't use Ruby hooks by default](gitlab-org/gitaly@2cdbfb3665dd4888a57071bc54cb81a95542cac8) ([merge request](gitlab-org/gitaly!4292))
+- [cmd/gitaly-git2go: Upgrade to libgit2 v1.3.0](gitlab-org/gitaly@252109a59ec555257418bbc45a031963c1de7230) ([merge request](gitlab-org/gitaly!4273))
+- [operations: Return detailed error when reference update fails in merge](gitlab-org/gitaly@f111135599bd35bd026f9c25aff728d7280fc6d0) ([merge request](gitlab-org/gitaly!4262))
+
+### Deprecated (1 change)
+
+- [operations: Deprecate the rebase ID](gitlab-org/gitaly@c15d0f69f58c7cee32d455d35a8d789176b93d85) ([merge request](gitlab-org/gitaly!4285))
+
+### Performance (7 changes)
+
+- [git: Backport patches to speed up git-fetch(1) in repos with many refs](gitlab-org/gitaly@3ad8de83877f4512fc68d255e93a81bba603952e) ([merge request](gitlab-org/gitaly!4355))
+- [datastore: Clean completed & dead replication jobs](gitlab-org/gitaly@507f55799f54ed17b3e3ef7fad57041f99492208) ([merge request](gitlab-org/gitaly!4353))
+- [repository: Avoid spawning Git command if there is no worktree to prune](gitlab-org/gitaly@b7095b9f80bc01bcc4fed031effa8b743f060120) ([merge request](gitlab-org/gitaly!4332))
+- [localrepo: Use protocol v2 for internal fetches](gitlab-org/gitaly@8bbe0b868fce6585797c2142e619f900b63188e3) ([merge request](gitlab-org/gitaly!4303))
+- [repository: Use skipping negotiation algorithm for replication](gitlab-org/gitaly@512bf0f683df32b18c5eb8944176f5128f1a0ffc) ([merge request](gitlab-org/gitaly!4287))
+- [housekeeping: Strip empty config sections](gitlab-org/gitaly@70b953e0168b64408e2659449ce3423bbcb16ee8) ([merge request](gitlab-org/gitaly!4284))
+- [Expand flat paths only for the returned page in GetTreeEntries](gitlab-org/gitaly@dc2c9dcef0061a6b232e2c28485936f2d94aea7a) ([merge request](gitlab-org/gitaly!4286))
+
+### Other (2 changes)
+
+- [chore: Add ssh signature test case](gitlab-org/gitaly@4a6b02ba6a4dfb6306426e4553a6b8f0931a3fcf) ([merge request](gitlab-org/gitaly!4277))
+- [client: Expose sidechannel server methods](gitlab-org/gitaly@bf41063be6f60730d5b1f2f1862089e74097ea64) ([merge request](gitlab-org/gitaly!4266))
+
 ## 14.7.3 (2022-02-15)
 
 No changes.
