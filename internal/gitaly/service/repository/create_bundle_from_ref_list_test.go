@@ -67,6 +67,44 @@ func TestCreateBundleFromRefList_success(t *testing.T) {
 	require.Contains(t, string(output), fmt.Sprintf("The bundle contains this ref:\n%s refs/heads/master", masterOID))
 }
 
+func TestCreateBundleFromRefList_missing_ref(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+
+	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
+
+	c, err := client.CreateBundleFromRefList(ctx)
+	require.NoError(t, err)
+
+	require.NoError(t, c.Send(&gitalypb.CreateBundleFromRefListRequest{
+		Repository: repo,
+		Patterns: [][]byte{
+			[]byte("refs/heads/master"),
+			[]byte("refs/heads/totally_missing"),
+		},
+	}))
+	require.NoError(t, c.CloseSend())
+
+	reader := streamio.NewReader(func() ([]byte, error) {
+		response, err := c.Recv()
+		return response.GetData(), err
+	})
+
+	bundle, err := os.Create(filepath.Join(testhelper.TempDir(t), "bundle"))
+	require.NoError(t, err)
+
+	_, err = io.Copy(bundle, reader)
+	require.NoError(t, err)
+
+	require.NoError(t, bundle.Close())
+
+	output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundle.Name())
+
+	require.Contains(t, string(output), fmt.Sprintf("The bundle contains this ref:\n%s refs/heads/master", masterOID))
+}
+
 func TestCreateBundleFromRefList_validations(t *testing.T) {
 	t.Parallel()
 
