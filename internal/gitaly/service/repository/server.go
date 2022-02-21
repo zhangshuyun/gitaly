@@ -4,6 +4,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
@@ -16,16 +17,17 @@ import (
 
 type server struct {
 	gitalypb.UnimplementedRepositoryServiceServer
-	ruby           *rubyserver.Server
-	conns          *client.Pool
-	locator        storage.Locator
-	txManager      transaction.Manager
-	gitCmdFactory  git.CommandFactory
-	cfg            config.Cfg
-	binDir         string
-	loggingCfg     config.Logging
-	catfileCache   catfile.Cache
-	git2goExecutor *git2go.Executor
+	ruby                *rubyserver.Server
+	conns               *client.Pool
+	locator             storage.Locator
+	txManager           transaction.Manager
+	gitCmdFactory       git.CommandFactory
+	cfg                 config.Cfg
+	binDir              string
+	loggingCfg          config.Logging
+	catfileCache        catfile.Cache
+	git2goExecutor      *git2go.Executor
+	housekeepingManager housekeeping.Manager
 }
 
 // NewServer creates a new instance of a gRPC repo server
@@ -38,18 +40,20 @@ func NewServer(
 	catfileCache catfile.Cache,
 	connsPool *client.Pool,
 	git2goExecutor *git2go.Executor,
+	housekeepingManager housekeeping.Manager,
 ) gitalypb.RepositoryServiceServer {
 	return &server{
-		ruby:           rs,
-		locator:        locator,
-		txManager:      txManager,
-		gitCmdFactory:  gitCmdFactory,
-		conns:          connsPool,
-		cfg:            cfg,
-		binDir:         cfg.BinDir,
-		loggingCfg:     cfg.Logging,
-		catfileCache:   catfileCache,
-		git2goExecutor: git2goExecutor,
+		ruby:                rs,
+		locator:             locator,
+		txManager:           txManager,
+		gitCmdFactory:       gitCmdFactory,
+		conns:               connsPool,
+		cfg:                 cfg,
+		binDir:              cfg.BinDir,
+		loggingCfg:          cfg.Logging,
+		catfileCache:        catfileCache,
+		git2goExecutor:      git2goExecutor,
+		housekeepingManager: housekeepingManager,
 	}
 }
 

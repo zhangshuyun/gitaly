@@ -86,6 +86,7 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
 			deps.GetHookManager(),

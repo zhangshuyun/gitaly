@@ -183,6 +183,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
 		))
 	}, testserver.WithTransactionManager(txManager))
 	sourceCfg.SocketPath = addr

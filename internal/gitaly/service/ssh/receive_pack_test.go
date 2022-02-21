@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -250,6 +251,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 		Seed: gittest.SeedGitLabTest,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
 	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()
@@ -261,7 +263,8 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		nil,
-		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		txManager,
+		housekeeping.NewManager(txManager),
 		repo.GetStorageName(),
 		gittest.NewObjectPoolName(t),
 	)

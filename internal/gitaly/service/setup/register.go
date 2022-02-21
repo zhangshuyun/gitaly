@@ -100,6 +100,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetCatfileCache(),
 		deps.GetConnsPool(),
 		deps.GetGit2goExecutor(),
+		deps.GetHousekeepingManager(),
 	))
 	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
 		deps.GetLocator(),
@@ -136,6 +137,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
 		deps.GetTxManager(),
+		deps.GetHousekeepingManager(),
 	))
 	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
 		deps.GetHookManager(),

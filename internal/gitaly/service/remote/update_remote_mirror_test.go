@@ -518,6 +518,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					deps.GetCatfileCache(),
 					deps.GetConnsPool(),
 					deps.GetGit2goExecutor(),
+					deps.GetHousekeepingManager(),
 				))
 			})
 			cfg.SocketPath = addr

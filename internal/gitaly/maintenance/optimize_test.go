@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
@@ -37,17 +38,19 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, req *gitalypb.O
 	catfileCache := catfile.NewCache(mo.cfg)
 	mo.t.Cleanup(catfileCache.Stop)
 	git2goExecutor := git2go.NewExecutor(mo.cfg, gitCmdFactory, l)
+	txManager := transaction.NewManager(mo.cfg, backchannel.NewRegistry())
+	housekeepingManager := housekeeping.NewManager(txManager)
 
 	connsPool := client.NewPool()
 	mo.t.Cleanup(func() { testhelper.MustClose(mo.t, connsPool) })
 
-	resp, err := repository.NewServer(mo.cfg, nil, l, transaction.NewManager(
-		mo.cfg,
-		backchannel.NewRegistry()),
+	resp, err := repository.NewServer(mo.cfg, nil, l,
+		txManager,
 		gitCmdFactory,
 		catfileCache,
 		connsPool,
 		git2goExecutor,
+		housekeepingManager,
 	).OptimizeRepository(ctx, req)
 	assert.NoError(mo.t, err)
 	return resp, err

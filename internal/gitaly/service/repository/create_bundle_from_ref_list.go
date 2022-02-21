@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
@@ -76,4 +77,13 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 	}
 
 	return nil
+}
+
+func isExitWithCode(err error, code int) bool {
+	actual, ok := command.ExitStatus(err)
+	if !ok {
+		return false
+	}
+
+	return code == actual
 }

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -225,22 +226,23 @@ func registerHealthServerIfNotRegistered(srv *grpc.Server) {
 }
 
 type gitalyServerDeps struct {
-	disablePraefect  bool
-	logger           *logrus.Logger
-	conns            *client.Pool
-	locator          storage.Locator
-	txMgr            transaction.Manager
-	hookMgr          hook.Manager
-	gitlabClient     gitlab.Client
-	gitCmdFactory    git.CommandFactory
-	linguist         *linguist.Instance
-	backchannelReg   *backchannel.Registry
-	catfileCache     catfile.Cache
-	diskCache        cache.Cache
-	packObjectsCache streamcache.Cache
-	limitHandler     *limithandler.LimiterMiddleware
-	git2goExecutor   *git2go.Executor
-	updaterWithHooks *updateref.UpdaterWithHooks
+	disablePraefect     bool
+	logger              *logrus.Logger
+	conns               *client.Pool
+	locator             storage.Locator
+	txMgr               transaction.Manager
+	hookMgr             hook.Manager
+	gitlabClient        gitlab.Client
+	gitCmdFactory       git.CommandFactory
+	linguist            *linguist.Instance
+	backchannelReg      *backchannel.Registry
+	catfileCache        catfile.Cache
+	diskCache           cache.Cache
+	packObjectsCache    streamcache.Cache
+	limitHandler        *limithandler.LimiterMiddleware
+	git2goExecutor      *git2go.Executor
+	updaterWithHooks    *updateref.UpdaterWithHooks
+	housekeepingManager housekeeping.Manager
 }
 
 func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
@@ -311,6 +313,10 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		gsd.updaterWithHooks = updateref.NewUpdaterWithHooks(cfg, gsd.locator, gsd.hookMgr, gsd.gitCmdFactory, gsd.catfileCache)
 	}
 
+	if gsd.housekeepingManager == nil {
+		gsd.housekeepingManager = housekeeping.NewManager(gsd.txMgr)
+	}
+
 	return &service.Dependencies{
 		Cfg:                 cfg,
 		RubyServer:          rubyServer,
@@ -328,6 +334,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		LimitHandler:        gsd.limitHandler,
 		Git2goExecutor:      gsd.git2goExecutor,
 		UpdaterWithHooks:    gsd.updaterWithHooks,
+		HousekeepingManager: gsd.housekeepingManager,
 	}
 }
 

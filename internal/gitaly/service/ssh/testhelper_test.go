@@ -38,6 +38,7 @@ func runSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, ser
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
 		))
 	}, serverOpts...)
 }

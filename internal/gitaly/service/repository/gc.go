@@ -29,7 +29,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 
 	repo := s.localrepo(in.GetRepository())
 
-	if err := cleanupWorktrees(ctx, repo); err != nil {
+	if err := housekeeping.CleanupWorktrees(ctx, repo); err != nil {
 		return nil, err
 	}
 
@@ -38,7 +38,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 	}
 
 	// Perform housekeeping to cleanup stale lockfiles that may block GC
-	if err := housekeeping.Perform(ctx, repo, s.txManager); err != nil {
+	if err := s.housekeepingManager.CleanStaleData(ctx, repo); err != nil {
 		ctxlogger.WithError(err).Warn("Pre gc housekeeping failed")
 	}
 
@@ -46,7 +46,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
-	if err := writeCommitGraph(ctx, repo, gitalypb.WriteCommitGraphRequest_SizeMultiple); err != nil {
+	if err := housekeeping.WriteCommitGraph(ctx, repo); err != nil {
 		return nil, err
 	}
 
@@ -56,7 +56,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 }
 
 func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
-	config := append(repackConfig(ctx, in.CreateBitmap), git.ConfigPair{Key: "gc.writeCommitGraph", Value: "false"})
+	config := append(housekeeping.GetRepackGitConfig(ctx, in.CreateBitmap), git.ConfigPair{Key: "gc.writeCommitGraph", Value: "false"})
 
 	var flags []git.Option
 	if in.Prune {

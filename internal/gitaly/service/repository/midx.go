@@ -10,6 +10,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -176,7 +177,7 @@ func (s *server) midxRepack(ctx context.Context, repo repository.GitRepo) error 
 				git.ValueFlag{Name: "--batch-size", Value: strconv.FormatInt(batchSize, 10)},
 			},
 		},
-		git.WithConfig(repackConfig(ctx, false)...),
+		git.WithConfig(housekeeping.GetRepackGitConfig(ctx, false)...),
 	)
 	if err != nil {
 		return err

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/stats"
@@ -220,12 +221,14 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 		Seed: gittest.SeedGitLabTest,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
 	pool, err := objectpool.NewObjectPool(
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		nil,
-		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		txManager,
+		housekeeping.NewManager(txManager),
 		repo.GetStorageName(),
 		gittest.NewObjectPoolName(t),
 	)

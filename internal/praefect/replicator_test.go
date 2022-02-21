@@ -17,6 +17,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/objectpool"
 	gconfig "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -77,13 +78,16 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 		}},
 	}
 
+	txManager := transaction.NewManager(primaryCfg, backchannel.NewRegistry())
+
 	// create object pool on the source
 	objectPoolPath := gittest.NewObjectPoolName(t)
 	pool, err := objectpool.NewObjectPool(
 		gconfig.NewLocator(primaryCfg),
 		gittest.NewCommandFactory(t, primaryCfg),
 		nil,
-		transaction.NewManager(primaryCfg, backchannel.NewRegistry()),
+		txManager,
+		housekeeping.NewManager(txManager),
 		testRepoProto.GetStorageName(),
 		objectPoolPath,
 	)

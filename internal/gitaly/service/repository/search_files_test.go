@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
@@ -217,16 +218,19 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 	defer testhelper.MustClose(t, connsPool)
 
 	git2goExecutor := git2go.NewExecutor(cfg, gitCommandFactory, locator)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	housekeepingManager := housekeeping.NewManager(txManager)
 
 	server := NewServer(
 		cfg,
 		nil,
 		locator,
-		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		txManager,
 		gitCommandFactory,
 		catfileCache,
 		connsPool,
 		git2goExecutor,
+		housekeepingManager,
 	)
 
 	testCases := []struct {
@@ -350,16 +354,19 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 	defer testhelper.MustClose(t, connsPool)
 
 	git2goExecutor := git2go.NewExecutor(cfg, gitCommandFactory, locator)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	housekeepingManager := housekeeping.NewManager(txManager)
 
 	server := NewServer(
 		cfg,
 		nil,
 		locator,
-		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		txManager,
 		gitCommandFactory,
 		catfileCache,
 		connsPool,
 		git2goExecutor,
+		housekeepingManager,
 	)
 
 	testCases := []struct {

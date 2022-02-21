@@ -3,6 +3,7 @@ package objectpool
 import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
@@ -12,10 +13,11 @@ import (
 
 type server struct {
 	gitalypb.UnimplementedObjectPoolServiceServer
-	locator       storage.Locator
-	gitCmdFactory git.CommandFactory
-	catfileCache  catfile.Cache
-	txManager     transaction.Manager
+	locator             storage.Locator
+	gitCmdFactory       git.CommandFactory
+	catfileCache        catfile.Cache
+	txManager           transaction.Manager
+	housekeepingManager housekeeping.Manager
 }
 
 // NewServer creates a new instance of a gRPC repo server
@@ -24,12 +26,14 @@ func NewServer(
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
+	housekeepingManager housekeeping.Manager,
 ) gitalypb.ObjectPoolServiceServer {
 	return &server{
-		locator:       locator,
-		gitCmdFactory: gitCmdFactory,
-		catfileCache:  catfileCache,
-		txManager:     txManager,
+		locator:             locator,
+		gitCmdFactory:       gitCmdFactory,
+		catfileCache:        catfileCache,
+		txManager:           txManager,
+		housekeepingManager: housekeepingManager,
 	}
 }
 

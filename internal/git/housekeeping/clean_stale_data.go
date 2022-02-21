@@ -15,7 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 	"google.golang.org/grpc/codes"
@@ -55,8 +54,8 @@ func init() {
 
 type staleFileFinderFn func(context.Context, string) ([]string, error)
 
-// Perform will perform housekeeping duties on a repository
-func Perform(ctx context.Context, repo *localrepo.Repo, txManager transaction.Manager) error {
+// CleanStaleData cleans up any stale data in the repository.
+func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.Repo) error {
 	repoPath, err := repo.Path()
 	if err != nil {
 		myLogger(ctx).WithError(err).Warn("housekeeping failed to get repo path")
@@ -110,7 +109,7 @@ func Perform(ctx context.Context, repo *localrepo.Repo, txManager transaction.Ma
 	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3987
 	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
 	unnecessaryConfigRegex := "^(http\\..+\\.extraheader|remote\\..+\\.(fetch|mirror|prune|url)|core\\.(commitgraph|sparsecheckout|splitindex))$"
-	if err := repo.UnsetMatchingConfig(ctx, unnecessaryConfigRegex, txManager); err != nil {
+	if err := repo.UnsetMatchingConfig(ctx, unnecessaryConfigRegex, m.txManager); err != nil {
 		if !errors.Is(err, git.ErrNotFound) {
 			return fmt.Errorf("housekeeping could not unset unnecessary config lines: %w", err)
 		}

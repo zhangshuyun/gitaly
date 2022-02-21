@@ -85,6 +85,7 @@ func startTestServices(t testing.TB, cfg config.Cfg) string {
 			deps.GetCatfileCache(),
 			deps.GetConnsPool(),
 			deps.GetGit2goExecutor(),
+			deps.GetHousekeepingManager(),
 		))
 	})
 }

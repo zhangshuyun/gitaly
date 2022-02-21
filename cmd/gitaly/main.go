@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -164,6 +165,9 @@ func run(cfg config.Cfg) error {
 	registry := backchannel.NewRegistry()
 	transactionManager := transaction.NewManager(cfg, registry)
 	prometheus.MustRegister(transactionManager)
+
+	housekeepingManager := housekeeping.NewManager(transactionManager)
+	prometheus.MustRegister(housekeepingManager)
 
 	hookManager := hook.Manager(hook.DisabledManager{})
 
