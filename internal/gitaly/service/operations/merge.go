@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -113,73 +112,52 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, firstRequest.GetRepository(), firstRequest.User, quarantineDir, referenceName, mergeOID, revision); err != nil {
-		// This code cannot be enabled via a feature flag only until Rails has adapted to
-		// the changed error handling because it will test with all feature flags enabled by
-		// default.
-		if featureflag.UserMergeBranchAccessError.IsEnabled(ctx) {
-			var notAllowedError hook.NotAllowedError
-			var updateRefError updateref.Error
-
-			if errors.As(err, &notAllowedError) {
-				detailedErr, err := helper.ErrWithDetails(
-					helper.ErrPermissionDenied(notAllowedError),
-					&gitalypb.UserMergeBranchError{
-						Error: &gitalypb.UserMergeBranchError_AccessCheck{
-							AccessCheck: &gitalypb.AccessCheckError{
-								ErrorMessage: notAllowedError.Message,
-								UserId:       notAllowedError.UserID,
-								Protocol:     notAllowedError.Protocol,
-								Changes:      notAllowedError.Changes,
-							},
-						},
-					},
-				)
-				if err != nil {
-					return helper.ErrInternalf("error details: %w", err)
-				}
-
-				return detailedErr
-			} else if errors.As(err, &updateRefError) {
-				// When an error happens updating the reference, e.g. because of a
-				// race with another update, then we should tell the user that a
-				// precondition failed. A retry may fix this.
-				detailedErr, err := helper.ErrWithDetails(
-					helper.ErrFailedPrecondition(updateRefError),
-					&gitalypb.UserMergeBranchError{
-						Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
-							ReferenceUpdate: &gitalypb.ReferenceUpdateError{
-								ReferenceName: []byte(updateRefError.Reference.String()),
-								OldOid:        updateRefError.OldOID.String(),
-								NewOid:        updateRefError.NewOID.String(),
-							},
-						},
-					},
-				)
-				if err != nil {
-					return helper.ErrInternalf("error details: %w", err)
-				}
-
-				return detailedErr
-			}
-
-			return helper.ErrInternal(err)
-		}
-
-		var hookError updateref.HookError
+		var notAllowedError hook.NotAllowedError
 		var updateRefError updateref.Error
 
-		if errors.As(err, &hookError) {
-			err = stream.Send(&gitalypb.UserMergeBranchResponse{
-				PreReceiveError: hookError.Error(),
-			})
+		if errors.As(err, &notAllowedError) {
+			detailedErr, err := helper.ErrWithDetails(
+				helper.ErrPermissionDenied(notAllowedError),
+				&gitalypb.UserMergeBranchError{
+					Error: &gitalypb.UserMergeBranchError_AccessCheck{
+						AccessCheck: &gitalypb.AccessCheckError{
+							ErrorMessage: notAllowedError.Message,
+							UserId:       notAllowedError.UserID,
+							Protocol:     notAllowedError.Protocol,
+							Changes:      notAllowedError.Changes,
+						},
+					},
+				},
+			)
+			if err != nil {
+				return helper.ErrInternalf("error details: %w", err)
+			}
+
+			return detailedErr
 		} else if errors.As(err, &updateRefError) {
-			// When an error happens updating the reference, e.g. because of a race
-			// with another update, then Ruby code didn't send an error but just an
-			// empty response.
-			err = stream.Send(&gitalypb.UserMergeBranchResponse{})
+			// When an error happens updating the reference, e.g. because of a
+			// race with another update, then we should tell the user that a
+			// precondition failed. A retry may fix this.
+			detailedErr, err := helper.ErrWithDetails(
+				helper.ErrFailedPrecondition(updateRefError),
+				&gitalypb.UserMergeBranchError{
+					Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
+						ReferenceUpdate: &gitalypb.ReferenceUpdateError{
+							ReferenceName: []byte(updateRefError.Reference.String()),
+							OldOid:        updateRefError.OldOID.String(),
+							NewOid:        updateRefError.NewOID.String(),
+						},
+					},
+				},
+			)
+			if err != nil {
+				return helper.ErrInternalf("error details: %w", err)
+			}
+
+			return detailedErr
 		}
 
-		return err
+		return helper.ErrInternal(err)
 	}
 
 	if err := stream.Send(&gitalypb.UserMergeBranchResponse{
