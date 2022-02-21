@@ -254,19 +254,20 @@ func run(cfg config.Cfg) error {
 		}
 
 		setup.RegisterAll(srv, &service.Dependencies{
-			Cfg:                cfg,
-			RubyServer:         rubySrv,
-			GitalyHookManager:  hookManager,
-			TransactionManager: transactionManager,
-			StorageLocator:     locator,
-			ClientPool:         conns,
-			GitCmdFactory:      gitCmdFactory,
-			Linguist:           ling,
-			CatfileCache:       catfileCache,
-			DiskCache:          diskCache,
-			PackObjectsCache:   streamCache,
-			Git2goExecutor:     git2goExecutor,
-			UpdaterWithHooks:   updaterWithHooks,
+			Cfg:                 cfg,
+			RubyServer:          rubySrv,
+			GitalyHookManager:   hookManager,
+			TransactionManager:  transactionManager,
+			StorageLocator:      locator,
+			ClientPool:          conns,
+			GitCmdFactory:       gitCmdFactory,
+			Linguist:            ling,
+			CatfileCache:        catfileCache,
+			DiskCache:           diskCache,
+			PackObjectsCache:    streamCache,
+			Git2goExecutor:      git2goExecutor,
+			UpdaterWithHooks:    updaterWithHooks,
+			HousekeepingManager: housekeepingManager,
 		})
 		b.RegisterStarter(starter.New(c, srv))
 	}
