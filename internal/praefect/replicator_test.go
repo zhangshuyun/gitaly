@@ -372,6 +372,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 		RelativePath: repositoryRelativePath,
 	}
 
+	//nolint:staticcheck
 	_, err = repositoryClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
 		Repository:   repository,
 		CreateBitmap: true,
@@ -379,15 +380,19 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	//nolint:staticcheck
 	_, err = repositoryClient.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repository, CreateBitmap: false})
 	require.NoError(t, err)
 
+	//nolint:staticcheck
 	_, err = repositoryClient.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repository})
 	require.NoError(t, err)
 
+	//nolint:staticcheck
 	_, err = repositoryClient.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repository})
 	require.NoError(t, err)
 
+	//nolint:staticcheck
 	_, err = repositoryClient.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository: repository,
 		// This is not a valid split strategy, but we currently only support a
@@ -398,6 +403,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	//nolint:staticcheck
 	_, err = repositoryClient.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repository})
 	require.NoError(t, err)
 
@@ -407,6 +413,7 @@ func TestReplicator_PropagateReplicationJob(t *testing.T) {
 	_, err = repositoryClient.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{Repository: repository})
 	require.NoError(t, err)
 
+	//nolint:staticcheck
 	_, err = refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
 		Repository: repository,
 	})

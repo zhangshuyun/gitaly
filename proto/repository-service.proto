@@ -13,31 +13,47 @@ service RepositoryService {
       op: ACCESSOR
     };
   }
+
+  // RepackIncremental is deprecated in favor of OptimizeRepository.
   rpc RepackIncremental(RepackIncrementalRequest) returns (RepackIncrementalResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // RepackFull is deprecated in favor of OptimizeRepository.
   rpc RepackFull(RepackFullRequest) returns (RepackFullResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // MidxRepack is deprecated in favor of OptimizeRepository.
   rpc MidxRepack(MidxRepackRequest) returns (MidxRepackResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // GarbageCollect is deprecated in favor of OptimizeRepository.
   rpc GarbageCollect(GarbageCollectRequest) returns (GarbageCollectResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // WriteCommitGraph is deprecated in favor of OptimizeRepository.
   rpc WriteCommitGraph(WriteCommitGraphRequest) returns (WriteCommitGraphResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: MUTATOR
     };
   }
+
   rpc RepositorySize(RepositorySizeRequest) returns (RepositorySizeResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -159,11 +175,15 @@ service RepositoryService {
       op: ACCESSOR
     };
   }
+
+  // Cleanup is deprecated in favor of OptimizeRepository.
   rpc Cleanup(CleanupRequest) returns (CleanupResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: MUTATOR
     };
   }
+
   rpc GetSnapshot(GetSnapshotRequest) returns (stream GetSnapshotResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -223,13 +243,19 @@ service RepositoryService {
     };
   }
 
+  // OptimizeRepository performs all maintenance tasks in a repository to keep
+  // it in an efficient state. It cleans up stale data, repacks objects,
+  // updates auxiliary caches like commit-graphs and packs references. The
+  // optimizations performed are based on heuristics and will adapt to the
+  // repository's size. This RPC call is designed as a black-box such that
+  // Gitaly has complete control of the on-disk state of repositories.
   rpc OptimizeRepository(OptimizeRepositoryRequest) returns (OptimizeRepositoryResponse) {
     option (op_type)  = {
       op: MUTATOR
     };
   }
 
-  // PruneUnreachableObjetcs will prune all objects which aren't reachable from
+  // PruneUnreachableObjects will prune all objects which aren't reachable from
   // the repository's current set of references. Because pruning can only
   // happen for objects which aren't packed, you are required to first run
   // OptimizeRepository to explode any unreachable objects into loose objects.

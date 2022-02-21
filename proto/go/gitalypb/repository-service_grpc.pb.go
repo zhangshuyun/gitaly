@@ -19,10 +19,20 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RepositoryServiceClient interface {
 	RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error)
+	// Deprecated: Do not use.
+	// RepackIncremental is deprecated in favor of OptimizeRepository.
 	RepackIncremental(ctx context.Context, in *RepackIncrementalRequest, opts ...grpc.CallOption) (*RepackIncrementalResponse, error)
+	// Deprecated: Do not use.
+	// RepackFull is deprecated in favor of OptimizeRepository.
 	RepackFull(ctx context.Context, in *RepackFullRequest, opts ...grpc.CallOption) (*RepackFullResponse, error)
+	// Deprecated: Do not use.
+	// MidxRepack is deprecated in favor of OptimizeRepository.
 	MidxRepack(ctx context.Context, in *MidxRepackRequest, opts ...grpc.CallOption) (*MidxRepackResponse, error)
+	// Deprecated: Do not use.
+	// GarbageCollect is deprecated in favor of OptimizeRepository.
 	GarbageCollect(ctx context.Context, in *GarbageCollectRequest, opts ...grpc.CallOption) (*GarbageCollectResponse, error)
+	// Deprecated: Do not use.
+	// WriteCommitGraph is deprecated in favor of OptimizeRepository.
 	WriteCommitGraph(ctx context.Context, in *WriteCommitGraphRequest, opts ...grpc.CallOption) (*WriteCommitGraphResponse, error)
 	RepositorySize(ctx context.Context, in *RepositorySizeRequest, opts ...grpc.CallOption) (*RepositorySizeResponse, error)
 	ApplyGitattributes(ctx context.Context, in *ApplyGitattributesRequest, opts ...grpc.CallOption) (*ApplyGitattributesResponse, error)
@@ -56,6 +66,8 @@ type RepositoryServiceClient interface {
 	FindLicense(ctx context.Context, in *FindLicenseRequest, opts ...grpc.CallOption) (*FindLicenseResponse, error)
 	GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error)
 	CalculateChecksum(ctx context.Context, in *CalculateChecksumRequest, opts ...grpc.CallOption) (*CalculateChecksumResponse, error)
+	// Deprecated: Do not use.
+	// Cleanup is deprecated in favor of OptimizeRepository.
 	Cleanup(ctx context.Context, in *CleanupRequest, opts ...grpc.CallOption) (*CleanupResponse, error)
 	GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (RepositoryService_GetSnapshotClient, error)
 	CreateRepositoryFromSnapshot(ctx context.Context, in *CreateRepositoryFromSnapshotRequest, opts ...grpc.CallOption) (*CreateRepositoryFromSnapshotResponse, error)
@@ -71,8 +83,14 @@ type RepositoryServiceClient interface {
 	RemoveRepository(ctx context.Context, in *RemoveRepositoryRequest, opts ...grpc.CallOption) (*RemoveRepositoryResponse, error)
 	RenameRepository(ctx context.Context, in *RenameRepositoryRequest, opts ...grpc.CallOption) (*RenameRepositoryResponse, error)
 	ReplicateRepository(ctx context.Context, in *ReplicateRepositoryRequest, opts ...grpc.CallOption) (*ReplicateRepositoryResponse, error)
+	// OptimizeRepository performs all maintenance tasks in a repository to keep
+	// it in an efficient state. It cleans up stale data, repacks objects,
+	// updates auxiliary caches like commit-graphs and packs references. The
+	// optimizations performed are based on heuristics and will adapt to the
+	// repository's size. This RPC call is designed as a black-box such that
+	// Gitaly has complete control of the on-disk state of repositories.
 	OptimizeRepository(ctx context.Context, in *OptimizeRepositoryRequest, opts ...grpc.CallOption) (*OptimizeRepositoryResponse, error)
-	// PruneUnreachableObjetcs will prune all objects which aren't reachable from
+	// PruneUnreachableObjects will prune all objects which aren't reachable from
 	// the repository's current set of references. Because pruning can only
 	// happen for objects which aren't packed, you are required to first run
 	// OptimizeRepository to explode any unreachable objects into loose objects.
@@ -108,6 +126,7 @@ func (c *repositoryServiceClient) RepositoryExists(ctx context.Context, in *Repo
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) RepackIncremental(ctx context.Context, in *RepackIncrementalRequest, opts ...grpc.CallOption) (*RepackIncrementalResponse, error) {
 	out := new(RepackIncrementalResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepackIncremental", in, out, opts...)
@@ -117,6 +136,7 @@ func (c *repositoryServiceClient) RepackIncremental(ctx context.Context, in *Rep
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) RepackFull(ctx context.Context, in *RepackFullRequest, opts ...grpc.CallOption) (*RepackFullResponse, error) {
 	out := new(RepackFullResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepackFull", in, out, opts...)
@@ -126,6 +146,7 @@ func (c *repositoryServiceClient) RepackFull(ctx context.Context, in *RepackFull
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) MidxRepack(ctx context.Context, in *MidxRepackRequest, opts ...grpc.CallOption) (*MidxRepackResponse, error) {
 	out := new(MidxRepackResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/MidxRepack", in, out, opts...)
@@ -135,6 +156,7 @@ func (c *repositoryServiceClient) MidxRepack(ctx context.Context, in *MidxRepack
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) GarbageCollect(ctx context.Context, in *GarbageCollectRequest, opts ...grpc.CallOption) (*GarbageCollectResponse, error) {
 	out := new(GarbageCollectResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/GarbageCollect", in, out, opts...)
@@ -144,6 +166,7 @@ func (c *repositoryServiceClient) GarbageCollect(ctx context.Context, in *Garbag
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) WriteCommitGraph(ctx context.Context, in *WriteCommitGraphRequest, opts ...grpc.CallOption) (*WriteCommitGraphResponse, error) {
 	out := new(WriteCommitGraphResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/WriteCommitGraph", in, out, opts...)
@@ -497,6 +520,7 @@ func (c *repositoryServiceClient) CalculateChecksum(ctx context.Context, in *Cal
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) Cleanup(ctx context.Context, in *CleanupRequest, opts ...grpc.CallOption) (*CleanupResponse, error) {
 	out := new(CleanupResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/Cleanup", in, out, opts...)
@@ -777,10 +801,20 @@ func (c *repositoryServiceClient) SetFullPath(ctx context.Context, in *SetFullPa
 // for forward compatibility
 type RepositoryServiceServer interface {
 	RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error)
+	// Deprecated: Do not use.
+	// RepackIncremental is deprecated in favor of OptimizeRepository.
 	RepackIncremental(context.Context, *RepackIncrementalRequest) (*RepackIncrementalResponse, error)
+	// Deprecated: Do not use.
+	// RepackFull is deprecated in favor of OptimizeRepository.
 	RepackFull(context.Context, *RepackFullRequest) (*RepackFullResponse, error)
+	// Deprecated: Do not use.
+	// MidxRepack is deprecated in favor of OptimizeRepository.
 	MidxRepack(context.Context, *MidxRepackRequest) (*MidxRepackResponse, error)
+	// Deprecated: Do not use.
+	// GarbageCollect is deprecated in favor of OptimizeRepository.
 	GarbageCollect(context.Context, *GarbageCollectRequest) (*GarbageCollectResponse, error)
+	// Deprecated: Do not use.
+	// WriteCommitGraph is deprecated in favor of OptimizeRepository.
 	WriteCommitGraph(context.Context, *WriteCommitGraphRequest) (*WriteCommitGraphResponse, error)
 	RepositorySize(context.Context, *RepositorySizeRequest) (*RepositorySizeResponse, error)
 	ApplyGitattributes(context.Context, *ApplyGitattributesRequest) (*ApplyGitattributesResponse, error)
@@ -814,6 +848,8 @@ type RepositoryServiceServer interface {
 	FindLicense(context.Context, *FindLicenseRequest) (*FindLicenseResponse, error)
 	GetInfoAttributes(*GetInfoAttributesRequest, RepositoryService_GetInfoAttributesServer) error
 	CalculateChecksum(context.Context, *CalculateChecksumRequest) (*CalculateChecksumResponse, error)
+	// Deprecated: Do not use.
+	// Cleanup is deprecated in favor of OptimizeRepository.
 	Cleanup(context.Context, *CleanupRequest) (*CleanupResponse, error)
 	GetSnapshot(*GetSnapshotRequest, RepositoryService_GetSnapshotServer) error
 	CreateRepositoryFromSnapshot(context.Context, *CreateRepositoryFromSnapshotRequest) (*CreateRepositoryFromSnapshotResponse, error)
@@ -829,8 +865,14 @@ type RepositoryServiceServer interface {
 	RemoveRepository(context.Context, *RemoveRepositoryRequest) (*RemoveRepositoryResponse, error)
 	RenameRepository(context.Context, *RenameRepositoryRequest) (*RenameRepositoryResponse, error)
 	ReplicateRepository(context.Context, *ReplicateRepositoryRequest) (*ReplicateRepositoryResponse, error)
+	// OptimizeRepository performs all maintenance tasks in a repository to keep
+	// it in an efficient state. It cleans up stale data, repacks objects,
+	// updates auxiliary caches like commit-graphs and packs references. The
+	// optimizations performed are based on heuristics and will adapt to the
+	// repository's size. This RPC call is designed as a black-box such that
+	// Gitaly has complete control of the on-disk state of repositories.
 	OptimizeRepository(context.Context, *OptimizeRepositoryRequest) (*OptimizeRepositoryResponse, error)
-	// PruneUnreachableObjetcs will prune all objects which aren't reachable from
+	// PruneUnreachableObjects will prune all objects which aren't reachable from
 	// the repository's current set of references. Because pruning can only
 	// happen for objects which aren't packed, you are required to first run
 	// OptimizeRepository to explode any unreachable objects into loose objects.

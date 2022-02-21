@@ -61,6 +61,7 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 
 			require.NoError(t, os.Chtimes(worktreeCheckoutPath, tc.worktreeTime, tc.worktreeTime))
 
+			//nolint:staticcheck
 			c, err := client.Cleanup(ctx, req)
 
 			// Sanity check
@@ -93,6 +94,7 @@ func TestCleanupDeletesOrphanedWorktrees(t *testing.T) {
 	require.NoError(t, os.MkdirAll(worktreeCheckoutPath, os.ModePerm))
 	require.NoError(t, os.Chtimes(worktreeCheckoutPath, oldTreeTime, oldTreeTime))
 
+	//nolint:staticcheck
 	c, err := client.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repo})
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
@@ -134,6 +136,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 	require.Error(t, cmd.Run(), "creating a new work tree at the same path as a disconnected work tree should fail")
 
 	// cleanup should prune the disconnected worktree administrative files
+	//nolint:staticcheck
 	_, err = client.Cleanup(ctx, req)
 	require.NoError(t, err)
 	require.NoDirExists(t, worktreeAdminPath)

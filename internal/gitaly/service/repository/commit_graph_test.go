@@ -43,6 +43,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 		gittest.WithTreeEntries(treeEntry),
 	)
 
+	//nolint:staticcheck
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    repo,
 		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
@@ -80,6 +81,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 		gittest.WithTreeEntries(treeEntry),
 	)
 
+	//nolint:staticcheck
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    repo,
 		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
@@ -102,6 +104,7 @@ func TestWriteCommitGraph(t *testing.T) {
 
 	require.NoFileExists(t, chainPath)
 
+	//nolint:staticcheck
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    repo,
 		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
@@ -143,6 +146,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			//nolint:staticcheck
 			_, err := client.WriteCommitGraph(ctx, tc.req)
 			testhelper.RequireGrpcError(t, tc.expErr, err)
 		})
@@ -158,6 +162,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	require.NoFileExists(t, chainPath)
 
+	//nolint:staticcheck
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    repo,
 		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
@@ -182,6 +187,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 		gittest.WithTreeEntries(treeEntry),
 	)
 
+	//nolint:staticcheck
 	res, err = client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 		Repository:    repo,
 		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,

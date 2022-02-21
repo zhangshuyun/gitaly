@@ -33,6 +33,7 @@ func TestPackRefsSuccessfulRequest(t *testing.T) {
 	}
 
 	// pack all refs
+	//nolint:staticcheck
 	_, err := client.PackRefs(ctx, &gitalypb.PackRefsRequest{Repository: repoProto})
 	require.NoError(t, err)
 

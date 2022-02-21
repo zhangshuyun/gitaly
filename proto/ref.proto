@@ -98,7 +98,9 @@ service RefService {
     };
   }
 
+  // PackRefs is deprecated in favor of OptimizeRepository.
   rpc PackRefs(PackRefsRequest) returns (PackRefsResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: MUTATOR
     };
