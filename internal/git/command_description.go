@@ -11,8 +11,6 @@ const (
 	scNoRefUpdates = 1 << iota
 	// scNoEndOfOptions denotes a command which doesn't know --end-of-options
 	scNoEndOfOptions
-	// scGeneratesPackfiles denotes a command which may generate packfiles
-	scGeneratesPackfiles
 )
 
 type commandDescription struct {
@@ -37,7 +35,8 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"bundle": {
-		flags: scNoRefUpdates | scGeneratesPackfiles,
+		flags: scNoRefUpdates,
+		opts:  packConfiguration(),
 	},
 	"cat-file": {
 		flags: scNoRefUpdates,
@@ -53,13 +52,12 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoEndOfOptions,
 	},
 	"clone": {
-		flags: scGeneratesPackfiles,
-		opts: []GlobalOption{
+		opts: append([]GlobalOption{
 			// See "init" for why we set the template directory to the empty string.
 			ConfigPair{Key: "init.templateDir", Value: ""},
 			// See "fetch" for why we disable following redirects.
 			ConfigPair{Key: "http.followRedirects", Value: "false"},
-		},
+		}, packConfiguration()...),
 	},
 	"commit": {
 		flags: 0,
@@ -112,7 +110,8 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates,
 	},
 	"gc": {
-		flags: scNoRefUpdates | scGeneratesPackfiles,
+		flags: scNoRefUpdates,
+		opts:  packConfiguration(),
 	},
 	"grep": {
 		// git-grep(1) does not support disambiguating options from paths from
@@ -174,7 +173,8 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates,
 	},
 	"pack-objects": {
-		flags: scNoRefUpdates | scGeneratesPackfiles,
+		flags: scNoRefUpdates,
+		opts:  packConfiguration(),
 	},
 	"prune": {
 		flags: scNoRefUpdates,
@@ -211,12 +211,12 @@ var commandDescriptions = map[string]commandDescription{
 		},
 	},
 	"repack": {
-		flags: scNoRefUpdates | scGeneratesPackfiles,
-		opts: []GlobalOption{
+		flags: scNoRefUpdates,
+		opts: append([]GlobalOption{
 			// Write bitmap indices when packing objects, which
 			// speeds up packfile creation for fetches.
 			ConfigPair{Key: "repack.writeBitmaps", Value: "true"},
-		},
+		}, packConfiguration()...),
 	},
 	"rev-list": {
 		// We cannot use --end-of-options here because pseudo revisions like `--all`
@@ -267,13 +267,13 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"upload-pack": {
-		flags: scNoRefUpdates | scGeneratesPackfiles,
-		opts: []GlobalOption{
+		flags: scNoRefUpdates,
+		opts: append([]GlobalOption{
 			ConfigPair{Key: "uploadpack.allowFilter", Value: "true"},
 			// Enables the capability to request individual SHA1's from the
 			// remote repo.
 			ConfigPair{Key: "uploadpack.allowAnySHA1InWant", Value: "true"},
-		},
+		}, packConfiguration()...),
 	},
 	"version": {
 		flags: scNoRefUpdates,
@@ -318,12 +318,6 @@ func init() {
 // caution.
 func (c commandDescription) mayUpdateRef() bool {
 	return c.flags&scNoRefUpdates == 0
-}
-
-// mayGeneratePackfiles indicates if a command is known to generate
-// packfiles. This is used in order to inject packfile configuration.
-func (c commandDescription) mayGeneratePackfiles() bool {
-	return c.flags&scGeneratesPackfiles != 0
 }
 
 // supportsEndOfOptions indicates whether a command can handle the
@@ -425,4 +419,11 @@ func fsckConfiguration(prefix string) []GlobalOption {
 	}
 
 	return configPairs
+}
+
+func packConfiguration() []GlobalOption {
+	return []GlobalOption{
+		ConfigPair{Key: "pack.windowMemory", Value: "100m"},
+		ConfigPair{Key: "pack.writeReverseIndex", Value: "true"},
+	}
 }
