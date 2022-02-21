@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -40,7 +41,7 @@ func New(locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache
 func NewTestRepo(t testing.TB, cfg config.Cfg, repo repository.GitRepo, factoryOpts ...git.ExecCommandFactoryOption) *Repo {
 	t.Helper()
 
-	if cfg.SocketPath != "it is a stub to bypass Validate method" {
+	if cfg.SocketPath != testcfg.UnconfiguredSocketPath {
 		repo = gittest.RewrittenRepository(testhelper.Context(t), t, cfg, &gitalypb.Repository{
 			StorageName:                   repo.GetStorageName(),
 			RelativePath:                  repo.GetRelativePath(),
