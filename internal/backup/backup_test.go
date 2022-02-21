@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,14 +10,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	gitalylog "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
-	praefectConfig "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
@@ -275,46 +270,7 @@ func TestManager_Restore(t *testing.T) {
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 	ctx := testhelper.Context(t)
 
-	testManagerRestore(t, ctx, cfg, cfg.SocketPath)
-}
-
-func TestManager_Restore_praefect(t *testing.T) {
-	t.Parallel()
-
-	gitalyCfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
-
-	testcfg.BuildGitalyHooks(t, gitalyCfg)
-
-	gitalyCfg.SocketPath = testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
-
-	conf := praefectConfig.Config{
-		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
-		VirtualStorages: []*praefectConfig.VirtualStorage{
-			{
-				Name: "default",
-				Nodes: []*praefectConfig.Node{
-					{Storage: gitalyCfg.Storages[0].Name, Address: gitalyCfg.SocketPath},
-				},
-			},
-		},
-		DB: testdb.GetConfig(t, testdb.New(t).Name),
-		Failover: praefectConfig.Failover{
-			Enabled:          true,
-			ElectionStrategy: praefectConfig.ElectionStrategyPerRepository,
-		},
-		Replication: praefectConfig.DefaultReplicationConfig(),
-		Logging: gitalylog.Config{
-			Format: "json",
-			Level:  "panic",
-		},
-	}
-	ctx := testhelper.Context(t)
-
-	testManagerRestore(t, ctx, gitalyCfg, testserver.StartPraefect(t, conf).Address())
-}
-
-func testManagerRestore(t *testing.T, ctx context.Context, cfg config.Cfg, gitalyAddr string) {
-	cc, err := client.Dial(gitalyAddr, nil)
+	cc, err := client.Dial(cfg.SocketPath, nil)
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, cc)
 
@@ -513,7 +469,7 @@ func testManagerRestore(t *testing.T, ctx context.Context, cfg config.Cfg, gital
 
 					fsBackup := NewManager(sink, locator, pool, "unused-backup-id")
 					err = fsBackup.Restore(ctx, &RestoreRequest{
-						Server:       storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
+						Server:       storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 						Repository:   repo,
 						AlwaysCreate: tc.alwaysCreate,
 					})
