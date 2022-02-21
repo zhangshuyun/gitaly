@@ -111,21 +111,14 @@ func (ch clientHandshake) serve(ctx context.Context, conn net.Conn) (net.Conn, e
 
 	// Run the backchannel server.
 	server := ch.serverFactory()
-	serveErr := make(chan error, 1)
-	go func() { serveErr <- server.Serve(muxSession) }()
+	go func() { server.Serve(muxSession) }()
 
 	return connCloser{
 		Conn: clientToServer,
 		close: func() error {
-			// Stop closes the listener, which is the muxing session. Closing the
-			// muxing session closes the underlying network connection.
-			//
-			// There's no sense in doing a graceful shutdown. The connection is being closed,
-			// it would no longer receive a response from the server.
-			server.Stop()
-			// Serve returns a non-nil error if it returned before Stop was called. If the error
-			// is non-nil, it indicates a serving failure prior to calling Stop.
-			return <-serveErr
+			// When the clientToServer yamux stream gets closed for whatever reason,
+			// we want to close the whole yamux session along with it.
+			return muxSession.Close()
 		},
 	}, nil
 }
