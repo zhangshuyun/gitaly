@@ -405,23 +405,63 @@ func TestWithInternalFetch(t *testing.T) {
 	ctx = metadata.NewIncomingContext(ctx, md)
 	ctx = correlation.ContextWithCorrelation(ctx, "correlation-id-1")
 
-	req := gitalypb.SSHUploadPackRequest{
+	uploadPackRequest := gitalypb.SSHUploadPackRequest{
 		Repository: &gitalypb.Repository{
 			StorageName: "default",
 		},
 	}
-
-	expectedPayload, err := protojson.Marshal(&req)
+	uploadPackRequestMarshalled, err := protojson.Marshal(&uploadPackRequest)
 	require.NoError(t, err)
 
-	var commandCfg cmdCfg
-	option := WithInternalFetch(&req)
-	require.NoError(t, option(ctx, cfg, gitCmdFactory, &commandCfg))
+	uploadPackRequestWithSidechannel := gitalypb.SSHUploadPackWithSidechannelRequest{
+		Repository: &gitalypb.Repository{
+			StorageName: "default",
+		},
+	}
+	uploadPackRequestWithSidechannelMarshalled, err := protojson.Marshal(&uploadPackRequestWithSidechannel)
+	require.NoError(t, err)
 
-	require.Subset(t, commandCfg.env, []string{
-		fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", filepath.Join(cfg.BinDir, "gitaly-ssh")),
-		fmt.Sprintf("GITALY_PAYLOAD=%s", expectedPayload),
-		"CORRELATION_ID=correlation-id-1",
-		"GIT_SSH_VARIANT=simple",
-	})
+	for _, tc := range []struct {
+		desc                string
+		createOption        func() CmdOpt
+		expectedSidechannel bool
+		expectedPayload     []byte
+	}{
+		{
+			desc: "without sidechannel",
+			createOption: func() CmdOpt {
+				return WithInternalFetch(&uploadPackRequest)
+			},
+			expectedSidechannel: false,
+			expectedPayload:     uploadPackRequestMarshalled,
+		},
+		{
+			desc: "with sidechannel",
+			createOption: func() CmdOpt {
+				return WithInternalFetchWithSidechannel(&uploadPackRequestWithSidechannel)
+			},
+			expectedSidechannel: true,
+			expectedPayload:     uploadPackRequestWithSidechannelMarshalled,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			var commandCfg cmdCfg
+
+			option := tc.createOption()
+			require.NoError(t, option(ctx, cfg, gitCmdFactory, &commandCfg))
+
+			require.Subset(t, commandCfg.env, []string{
+				fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", filepath.Join(cfg.BinDir, "gitaly-ssh")),
+				fmt.Sprintf("GITALY_PAYLOAD=%s", tc.expectedPayload),
+				"CORRELATION_ID=correlation-id-1",
+				"GIT_SSH_VARIANT=simple",
+			})
+
+			if tc.expectedSidechannel {
+				require.Contains(t, commandCfg.env, "GITALY_USE_SIDECHANNEL=1")
+			} else {
+				require.NotContains(t, commandCfg.env, "GITALY_USE_SIDECHANNEL=1")
+			}
+		})
+	}
 }
