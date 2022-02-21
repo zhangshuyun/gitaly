@@ -5,9 +5,9 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	git "github.com/libgit2/git2go/v33"
@@ -16,7 +16,7 @@ import (
 
 type subcmd interface {
 	Flags() *flag.FlagSet
-	Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error
+	Run(ctx context.Context, decoder *gob.Decoder, encoder *gob.Encoder) error
 }
 
 var subcommands = map[string]subcmd{
@@ -31,41 +31,51 @@ var subcommands = map[string]subcmd{
 	"submodule":   &submoduleSubcommand{},
 }
 
-func fatalf(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, format+"\n", args...)
-	os.Exit(1)
+func fatalf(encoder *gob.Encoder, format string, args ...interface{}) {
+	// Once logging has been implemented these encoding errors can be logged.
+	// Until then these will be ignored as we can no longer use stderr.
+	// https://gitlab.com/gitlab-org/gitaly/-/issues/3229
+	_ = encoder.Encode(git2go.Result{
+		Err: git2go.SerializableError(fmt.Errorf(format, args...)),
+	})
+	// An exit code of 1 would indicate an error over stderr. Since our errors
+	// are encoded over gob, we need to exit cleanly
+	os.Exit(0)
 }
 
 func main() {
-	flags := flag.NewFlagSet(git2go.BinaryName, flag.ExitOnError)
+	decoder := gob.NewDecoder(os.Stdin)
+	encoder := gob.NewEncoder(os.Stdout)
+
+	flags := flag.NewFlagSet(git2go.BinaryName, flag.ContinueOnError)
 
 	if err := flags.Parse(os.Args); err != nil {
-		fatalf("parsing flags: %s", err)
+		fatalf(encoder, "parsing flags: %s", err)
 	}
 
 	if flags.NArg() < 2 {
-		fatalf("missing subcommand")
+		fatalf(encoder, "missing subcommand")
 	}
 
 	subcmd, ok := subcommands[flags.Arg(1)]
 	if !ok {
-		fatalf("unknown subcommand: %q", flags.Arg(1))
+		fatalf(encoder, "unknown subcommand: %q", flags.Arg(0))
 	}
 
 	subcmdFlags := subcmd.Flags()
 	if err := subcmdFlags.Parse(flags.Args()[2:]); err != nil {
-		fatalf("parsing flags of %q: %s", subcmdFlags.Name(), err)
+		fatalf(encoder, "parsing flags of %q: %s", subcmdFlags.Name(), err)
 	}
 
 	if subcmdFlags.NArg() != 0 {
-		fatalf("%s: trailing arguments", subcmdFlags.Name())
+		fatalf(encoder, "%s: trailing arguments", subcmdFlags.Name())
 	}
 
 	if err := git.EnableFsyncGitDir(true); err != nil {
-		fatalf("enable fsync: %s", err)
+		fatalf(encoder, "enable fsync: %s", err)
 	}
 
-	if err := subcmd.Run(context.Background(), os.Stdin, os.Stdout); err != nil {
-		fatalf("%s: %s", subcmdFlags.Name(), err)
+	if err := subcmd.Run(context.Background(), decoder, encoder); err != nil {
+		fatalf(encoder, "%s: %s", subcmdFlags.Name(), err)
 	}
 }

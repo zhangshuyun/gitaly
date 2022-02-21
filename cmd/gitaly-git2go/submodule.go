@@ -8,7 +8,6 @@ import (
 	"encoding/gob"
 	"flag"
 	"fmt"
-	"io"
 	"time"
 
 	git "github.com/libgit2/git2go/v33"
@@ -22,10 +21,10 @@ func (cmd *submoduleSubcommand) Flags() *flag.FlagSet {
 	return flag.NewFlagSet("submodule", flag.ExitOnError)
 }
 
-func (cmd *submoduleSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) error {
+func (cmd *submoduleSubcommand) Run(_ context.Context, decoder *gob.Decoder, encoder *gob.Encoder) error {
 	var request git2go.SubmoduleCommand
 
-	if err := gob.NewDecoder(r).Decode(&request); err != nil {
+	if err := decoder.Decode(&request); err != nil {
 		return fmt.Errorf("deserializing submodule command request: %w", err)
 	}
 
@@ -34,7 +33,7 @@ func (cmd *submoduleSubcommand) Run(_ context.Context, r io.Reader, w io.Writer)
 		return err
 	}
 
-	return gob.NewEncoder(w).Encode(res)
+	return encoder.Encode(res)
 }
 
 func (cmd *submoduleSubcommand) run(request git2go.SubmoduleCommand) (*git2go.SubmoduleResult, error) {

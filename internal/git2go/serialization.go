@@ -35,11 +35,6 @@ var registeredTypes = map[reflect.Type]struct{}{
 type Result struct {
 	// CommitID is the result of the call.
 	CommitID string
-	// Error is set if the call errord.
-	//
-	// Deprecated: Use Err instead. Error clashes with other serialized types
-	// where Error is not of type error
-	Error error
 	// Err is set if an error occurred. Err must exist on all gob serialized
 	// results so that all errors can be returned.
 	Err error

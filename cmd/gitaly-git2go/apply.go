@@ -53,9 +53,7 @@ func (cmd *applySubcommand) Flags() *flag.FlagSet {
 }
 
 // Run runs the subcommand.
-func (cmd *applySubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
-	decoder := gob.NewDecoder(stdin)
-
+func (cmd *applySubcommand) Run(ctx context.Context, decoder *gob.Decoder, encoder *gob.Encoder) error {
 	var params git2go.ApplyParams
 	if err := decoder.Decode(&params); err != nil {
 		return fmt.Errorf("decode params: %w", err)
@@ -63,9 +61,8 @@ func (cmd *applySubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.
 
 	params.Patches = &patchIterator{decoder: decoder}
 	commitID, err := cmd.apply(ctx, params)
-	return gob.NewEncoder(stdout).Encode(git2go.Result{
+	return encoder.Encode(git2go.Result{
 		CommitID: commitID,
-		Error:    git2go.SerializableError(err), // Set both fields for backwards compatibility.
 		Err:      git2go.SerializableError(err),
 	})
 }

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -26,9 +25,9 @@ func (cmd *resolveSubcommand) Flags() *flag.FlagSet {
 	return flag.NewFlagSet("resolve", flag.ExitOnError)
 }
 
-func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) error {
+func (cmd resolveSubcommand) Run(_ context.Context, decoder *gob.Decoder, encoder *gob.Encoder) error {
 	var request git2go.ResolveCommand
-	if err := gob.NewDecoder(r).Decode(&request); err != nil {
+	if err := decoder.Decode(&request); err != nil {
 		return err
 	}
 
@@ -205,7 +204,7 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 		},
 	}
 
-	return gob.NewEncoder(w).Encode(response)
+	return encoder.Encode(response)
 }
 
 func readConflictEntries(odb *git.Odb, c git.IndexConflict) (*conflict.Entry, *conflict.Entry, *conflict.Entry, error) {

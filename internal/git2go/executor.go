@@ -90,10 +90,6 @@ func (b *Executor) runWithGob(ctx context.Context, repo repository.GitRepo, cmd 
 		return "", fmt.Errorf("%s: %w", cmd, result.Err)
 	}
 
-	if result.Error != nil {
-		return "", fmt.Errorf("%s: %w", cmd, result.Error)
-	}
-
 	commitID, err := git.NewObjectIDFromHex(result.CommitID)
 	if err != nil {
 		return "", fmt.Errorf("could not parse commit ID: %w", err)
