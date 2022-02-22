@@ -103,7 +103,6 @@ func (cc *cmdCfg) configureHooks(
 	cc.env = append(
 		cc.env,
 		payload,
-		"GITALY_BIN_DIR="+cfg.BinDir,
 		fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
 	)
 

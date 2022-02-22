@@ -132,7 +132,6 @@ module Gitlab
         {
           'GITALY_HOOKS_PAYLOAD' => hooks_payload(gl_id, gl_username, transaction),
           'GITALY_LOG_DIR' => Gitlab.config.logging.dir,
-          'GITALY_BIN_DIR' => Gitlab.config.gitaly.bin_dir,
           'PWD' => repo_path,
           'GIT_DIR' => repo_path
         }

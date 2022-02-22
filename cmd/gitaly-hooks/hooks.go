@@ -58,10 +58,6 @@ var hooksBySubcommand = map[string]hookCommand{
 		exec:     referenceTransactionHook,
 		hookType: git.ReferenceTransactionHook,
 	},
-	"git": {
-		exec:     packObjectsHook,
-		hookType: git.PackObjectsHook,
-	},
 }
 
 func main() {
@@ -90,7 +86,8 @@ func run(args []string) error {
 
 		subCmd := args[1]
 
-		if subCmd == "check" {
+		switch subCmd {
+		case "check":
 			logrus.SetLevel(logrus.ErrorLevel)
 			if len(args) != 3 {
 				fmt.Fprint(os.Stderr, "no configuration file path provided invoke with: gitaly-hooks check <config_path>")
@@ -115,17 +112,14 @@ func run(args []string) error {
 			fmt.Println("OK")
 
 			return nil
+		case "git":
+			return executeHook(hookCommand{
+				exec:     packObjectsHook,
+				hookType: git.PackObjectsHook,
+			}, args[2:])
 		}
 
-		// This exists for backwards-compatibility reasons only and should be removed in
-		// v14.9 such that we always use the zeroth argument to derive the hook that we
-		// shall execute.
-		hookCommand, ok := hooksBySubcommand[subCmd]
-		if !ok {
-			return fmt.Errorf("subcommand name invalid: %q", subCmd)
-		}
-
-		return executeHook(hookCommand, args[2:])
+		return fmt.Errorf("subcommand name invalid: %q", subCmd)
 	default:
 		hookName := filepath.Base(args[0])
 		hookCommand, ok := hooksBySubcommand[hookName]
