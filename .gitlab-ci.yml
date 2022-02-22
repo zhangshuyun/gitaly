@@ -299,8 +299,14 @@ dbschema:
     when: on_failure
 
 gosec-sast:
+  dependencies: []
+  cache:
+    - *cache_go_configuration
+  variables:
+    GOPATH: "/go"
   before_script:
     - apk add pkgconfig libgit2-dev gcc libc-dev
+    - mv .go /go
   rules:
     - if: $SAST_DISABLED
       when: never
@@ -309,6 +315,8 @@ gosec-sast:
     - if: $CI_COMMIT_TAG
 
 license_scanning:
+  dependencies: []
+  cache: []
   before_script:
     - sudo apt-get update
     - sudo apt-get install -y libicu-dev libgit2-dev cmake
@@ -322,6 +330,8 @@ license_scanning:
     LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=. ruby'
 
 gemnasium-dependency_scanning:
+  dependencies: []
+  cache: []
   rules:
     - if: $DEPENDENCY_SCANNING_DISABLED
       when: never
@@ -330,6 +340,8 @@ gemnasium-dependency_scanning:
     - if: $CI_COMMIT_TAG
 
 secret_detection:
+  dependencies: []
+  cache: []
   inherit:
     default: false
   rules:
