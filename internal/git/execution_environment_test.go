@@ -2,6 +2,7 @@ package git_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -200,5 +201,31 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, filepath.Join(bundledGitPath, "gitaly-"+binary), target)
 		}
+	})
+}
+
+func TestFallbackGitEnvironmentConstructor(t *testing.T) {
+	constructor := git.FallbackGitEnvironmentConstructor{}
+
+	t.Run("failing lookup of executable causes failure", func(t *testing.T) {
+		testhelper.ModifyEnvironment(t, "PATH", "/does/not/exist")
+
+		_, _, err := constructor.Construct(config.Cfg{})
+		require.Equal(t, fmt.Errorf("%w: no git executable found in PATH", git.ErrNotConfigured), err)
+	})
+
+	t.Run("successfully resolved executable", func(t *testing.T) {
+		tempDir := testhelper.TempDir(t)
+		gitPath := filepath.Join(tempDir, "git")
+		require.NoError(t, os.WriteFile(gitPath, nil, 0o755))
+
+		testhelper.ModifyEnvironment(t, "PATH", "/does/not/exist:"+tempDir)
+
+		execEnv, cleanup, err := constructor.Construct(config.Cfg{})
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.Equal(t, gitPath, execEnv.BinaryPath)
+		require.Equal(t, []string(nil), execEnv.EnvironmentVariables)
 	})
 }

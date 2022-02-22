@@ -257,7 +257,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 		testhelper.ModifyEnvironment(t, "PATH", "")
 
 		_, _, err := git.NewExecCommandFactory(config.Cfg{}, git.WithSkipHooks())
-		require.EqualError(t, err, `setting up Git execution environment: "git" executable not found, set path to it in the configuration file or add it to the PATH`)
+		require.EqualError(t, err, "setting up Git execution environment: constructing fallback Git environment: execution environment is not configured: no git executable found in PATH")
 	})
 }
 

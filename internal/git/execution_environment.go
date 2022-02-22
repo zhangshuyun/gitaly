@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
@@ -146,4 +147,29 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 			"GIT_EXEC_PATH=" + gitExecPath,
 		},
 	}, cleanup, nil
+}
+
+// FallbackGitEnvironmentConstructor sets up a fallback execution environment where Git is resolved
+// via the `PATH` environment variable. This is only intended as a last resort in case no other
+// environments have been set up.
+type FallbackGitEnvironmentConstructor struct{}
+
+// Construct sets up an execution environment by searching `PATH` for a `git` executable.
+func (c FallbackGitEnvironmentConstructor) Construct(config.Cfg) (ExecutionEnvironment, func(), error) {
+	resolvedPath, err := exec.LookPath("git")
+	if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return ExecutionEnvironment{}, nil, fmt.Errorf("%w: no git executable found in PATH", ErrNotConfigured)
+		}
+
+		return ExecutionEnvironment{}, nil, fmt.Errorf("resolving git executable: %w", err)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"resolvedPath": resolvedPath,
+	}).Warn("git path not configured. Using default path resolution")
+
+	return ExecutionEnvironment{
+		BinaryPath: resolvedPath,
+	}, func() {}, nil
 }

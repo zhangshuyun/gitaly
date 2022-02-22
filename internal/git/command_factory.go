@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/alternates"
@@ -205,20 +204,13 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 	// in case either one of those has been configured though: we have no clue where system Git
 	// comes from and what its version is, so it's the worst of all choices.
 	if execEnvs.externalGit.BinaryPath == "" && execEnvs.bundledGit.BinaryPath == "" {
-		resolvedPath, err := exec.LookPath("git")
+		execEnv, cleanup, err := (FallbackGitEnvironmentConstructor{}).Construct(cfg)
 		if err != nil {
-			if errors.Is(err, exec.ErrNotFound) {
-				return executionEnvironments{}, nil, fmt.Errorf(`"git" executable not found, set path to it in the configuration file or add it to the PATH`)
-			}
+			return executionEnvironments{}, nil, fmt.Errorf("constructing fallback Git environment: %w", err)
 		}
 
-		logrus.WithFields(logrus.Fields{
-			"resolvedPath": resolvedPath,
-		}).Warn("git path not configured. Using default path resolution")
-
-		execEnvs.externalGit = ExecutionEnvironment{
-			BinaryPath: resolvedPath,
-		}
+		execEnvs.externalGit = execEnv
+		cleanups = append(cleanups, cleanup)
 	}
 
 	return execEnvs, func() {
