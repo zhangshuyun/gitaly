@@ -1,6 +1,7 @@
 package git
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,11 +10,36 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 )
 
-// ErrNotConfigured may be returned by an ExecutionEnvironmentConstructor in case an environment
-// was not configured.
-var ErrNotConfigured = errors.New("execution environment is not configured")
+var (
+	// ErrNotConfigured may be returned by an ExecutionEnvironmentConstructor in case an
+	// environment was not configured.
+	ErrNotConfigured = errors.New("execution environment is not configured")
+
+	// ExecutionEnvironmentConstructors is the list of Git environments supported by the Git
+	// command factory. The order is important and signifies the priority in which the
+	// environments will be used: the environment created by the first constructor is the one
+	// that will be preferred when executing Git commands. Later environments may be used in
+	// case `IsEnabled()` returns `false` though.
+	ExecutionEnvironmentConstructors = []ExecutionEnvironmentConstructor{
+		BundledGitEnvironmentConstructor{
+			FeatureFlags: []featureflag.FeatureFlag{
+				featureflag.UseBundledGit,
+			},
+		},
+		DistributedGitEnvironmentConstructor{},
+		FallbackGitEnvironmentConstructor{},
+	}
+)
+
+// ExecutionEnvironmentConstructor is an interface for constructors of Git execution environments.
+// A constructor should be able to set up an environment in which it is possible to run Git
+// executables.
+type ExecutionEnvironmentConstructor interface {
+	Construct(config.Cfg) (ExecutionEnvironment, error)
+}
 
 // ExecutionEnvironment describes the environment required to execute a Git command
 type ExecutionEnvironment struct {
@@ -22,7 +48,8 @@ type ExecutionEnvironment struct {
 	// EnvironmentVariables are variables which must be set when running the Git binary.
 	EnvironmentVariables []string
 
-	cleanup func()
+	isEnabled func(context.Context) bool
+	cleanup   func()
 }
 
 // Cleanup cleans up any state set up by this ExecutionEnvironment.
@@ -30,6 +57,16 @@ func (e ExecutionEnvironment) Cleanup() {
 	if e.cleanup != nil {
 		e.cleanup()
 	}
+}
+
+// IsEnabled checks whether the ExecutionEnvironment is enabled in the given context. An execution
+// environment will typically be enabled by default, except if it's feature-flagged.
+func (e ExecutionEnvironment) IsEnabled(ctx context.Context) bool {
+	if e.isEnabled != nil {
+		return e.isEnabled(ctx)
+	}
+
+	return true
 }
 
 // DistributedGitEnvironmentConstructor creates ExecutionEnvironments via the Git binary path
@@ -64,7 +101,12 @@ func (c DistributedGitEnvironmentConstructor) Construct(cfg config.Cfg) (Executi
 // into Gitaly's binary directory. The binaries must have a `gitaly-` prefix like e.g. `gitaly-git`.
 // Bundled Git installations can be installed with Gitaly's Makefile via `make install
 // WITH_BUNDLED_GIT=YesPlease`.
-type BundledGitEnvironmentConstructor struct{}
+type BundledGitEnvironmentConstructor struct {
+	// FeatureFlags is the set of feature flags which must be enabled in order for the bundled
+	// Git environment to be enabled. Note that _all_ feature flags must be set to `true` in the
+	// context.
+	FeatureFlags []featureflag.FeatureFlag
+}
 
 // Construct sets up an ExecutionEnvironment for a bundled Git installation. Because bundled Git
 // installations are not complete Git installations we need to set up a usable environment at
@@ -155,6 +197,15 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 			"GIT_EXEC_PATH=" + gitExecPath,
 		},
 		cleanup: cleanup,
+		isEnabled: func(ctx context.Context) bool {
+			for _, flag := range c.FeatureFlags {
+				if flag.IsDisabled(ctx) {
+					return false
+				}
+			}
+
+			return true
+		},
 	}, nil
 }
 
@@ -180,5 +231,13 @@ func (c FallbackGitEnvironmentConstructor) Construct(config.Cfg) (ExecutionEnvir
 
 	return ExecutionEnvironment{
 		BinaryPath: resolvedPath,
+		// We always pretend that this environment is disabled. This has the effect that
+		// even if all the other existing execution environments are disabled via feature
+		// flags, we will still not use the fallback Git environment but will instead use
+		// the feature flagged environments. The fallback will then only be used in the
+		// case it is the only existing environment with no other better alternatives.
+		isEnabled: func(context.Context) bool {
+			return false
+		},
 	}, nil
 }

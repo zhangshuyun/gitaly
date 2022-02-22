@@ -155,7 +155,12 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 		gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, git.WithSkipHooks())
 		require.NoError(t, err)
 		defer cleanup()
-		require.Equal(t, expectedExecEnv, gitCmdFactory.GetExecutionEnvironment(ctx))
+
+		// We need to compare the execution environments manually because they also have
+		// some private variables which we cannot easily check here.
+		actualExecEnv := gitCmdFactory.GetExecutionEnvironment(ctx)
+		require.Equal(t, expectedExecEnv.BinaryPath, actualExecEnv.BinaryPath)
+		require.Equal(t, expectedExecEnv.EnvironmentVariables, actualExecEnv.EnvironmentVariables)
 	}
 
 	t.Run("set in config", func(t *testing.T) {
@@ -184,7 +189,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 
 		t.Run("missing bin_dir", func(t *testing.T) {
 			_, _, err := git.NewExecCommandFactory(config.Cfg{Git: config.Git{}}, git.WithSkipHooks())
-			require.EqualError(t, err, "setting up Git execution environment: constructing bundled Git environment: cannot use bundled binaries without bin path being set")
+			require.EqualError(t, err, "setting up Git execution environment: constructing Git environment: cannot use bundled binaries without bin path being set")
 		})
 
 		t.Run("missing gitaly-git executable", func(t *testing.T) {
@@ -257,7 +262,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 		testhelper.ModifyEnvironment(t, "PATH", "")
 
 		_, _, err := git.NewExecCommandFactory(config.Cfg{}, git.WithSkipHooks())
-		require.EqualError(t, err, "setting up Git execution environment: constructing fallback Git environment: execution environment is not configured: no git executable found in PATH")
+		require.EqualError(t, err, "setting up Git execution environment: could not set up any Git execution environments")
 	})
 }
 

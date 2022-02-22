@@ -43,11 +43,6 @@ var globalOptions = []GlobalOption{
 	ConfigPair{Key: "core.useReplaceRefs", Value: "false"},
 }
 
-type executionEnvironments struct {
-	externalGit ExecutionEnvironment
-	bundledGit  ExecutionEnvironment
-}
-
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
 type CommandFactory interface {
 	// New creates a new command for the repo repository.
@@ -106,7 +101,7 @@ type cachedGitVersion struct {
 type ExecCommandFactory struct {
 	locator               storage.Locator
 	cfg                   config.Cfg
-	execEnvs              executionEnvironments
+	execEnvs              []ExecutionEnvironment
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
 	hookDirs              hookDirectories
@@ -169,53 +164,38 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 
 // setupGitExecutionEnvironments assembles a Git execution environment that can be used to run Git
 // commands. It warns if no path was specified in the configuration.
-func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (executionEnvironments, func(), error) {
+func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactoryConfig) ([]ExecutionEnvironment, func(), error) {
 	if factoryCfg.gitBinaryPath != "" {
-		return executionEnvironments{
-			externalGit: ExecutionEnvironment{
-				BinaryPath: factoryCfg.gitBinaryPath,
-			},
+		return []ExecutionEnvironment{
+			{BinaryPath: factoryCfg.gitBinaryPath},
 		}, func() {}, nil
 	}
 
-	var execEnvs executionEnvironments
-	var cleanups []func()
-
-	if execEnv, err := (DistributedGitEnvironmentConstructor{}).Construct(cfg); err != nil {
-		if !errors.Is(err, ErrNotConfigured) {
-			return executionEnvironments{}, nil, fmt.Errorf("constructing distributed Git environment: %w", err)
-		}
-	} else {
-		execEnvs.externalGit = execEnv
-		cleanups = append(cleanups, execEnv.Cleanup)
-	}
-
-	if execEnv, err := (BundledGitEnvironmentConstructor{}).Construct(cfg); err != nil {
-		if !errors.Is(err, ErrNotConfigured) {
-			return executionEnvironments{}, nil, fmt.Errorf("constructing bundled Git environment: %w", err)
-		}
-	} else {
-		execEnvs.bundledGit = execEnv
-		cleanups = append(cleanups, execEnv.Cleanup)
-	}
-
-	// If neither an external Git distribution nor a bundled Git was configured we need to
-	// fall back to resolve the Git executable via PATH. We explicitly don't want to do this
-	// in case either one of those has been configured though: we have no clue where system Git
-	// comes from and what its version is, so it's the worst of all choices.
-	if execEnvs.externalGit.BinaryPath == "" && execEnvs.bundledGit.BinaryPath == "" {
-		execEnv, err := (FallbackGitEnvironmentConstructor{}).Construct(cfg)
+	var execEnvs []ExecutionEnvironment
+	for _, constructor := range ExecutionEnvironmentConstructors {
+		execEnv, err := constructor.Construct(cfg)
 		if err != nil {
-			return executionEnvironments{}, nil, fmt.Errorf("constructing fallback Git environment: %w", err)
+			// In case the environment has not been configured by the user we simply
+			// skip it.
+			if errors.Is(err, ErrNotConfigured) {
+				continue
+			}
+
+			// But if it has been configured and we fail to set it up then it signifies
+			// a real error.
+			return nil, nil, fmt.Errorf("constructing Git environment: %w", err)
 		}
 
-		execEnvs.externalGit = execEnv
-		cleanups = append(cleanups, execEnv.Cleanup)
+		execEnvs = append(execEnvs, execEnv)
+	}
+
+	if len(execEnvs) == 0 {
+		return nil, nil, fmt.Errorf("could not set up any Git execution environments")
 	}
 
 	return execEnvs, func() {
-		for i := len(cleanups) - 1; i >= 0; i-- {
-			cleanups[i]()
+		for _, execEnv := range execEnvs {
+			execEnv.Cleanup()
 		}
 	}, nil
 }
@@ -254,21 +234,18 @@ func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd
 
 // GetExecutionEnvironment returns parameters required to execute Git commands.
 func (cf *ExecCommandFactory) GetExecutionEnvironment(ctx context.Context) ExecutionEnvironment {
-	switch {
-	case cf.execEnvs.bundledGit.BinaryPath != "" && cf.execEnvs.externalGit.BinaryPath != "":
-		if featureflag.UseBundledGit.IsEnabled(ctx) {
-			return cf.execEnvs.bundledGit
+	// We first go through all execution environments and check whether any of them is enabled
+	// in the current context, which most importantly will check their respective feature flags.
+	for _, execEnv := range cf.execEnvs {
+		if execEnv.IsEnabled(ctx) {
+			return execEnv
 		}
-		return cf.execEnvs.externalGit
-	case cf.execEnvs.bundledGit.BinaryPath != "":
-		return cf.execEnvs.bundledGit
-	case cf.execEnvs.externalGit.BinaryPath != "":
-		return cf.execEnvs.externalGit
-	default:
-		// This shouldn't ever happen given that `setupGitExecutionEnvironments()` returns
-		// an error in case no environment was found.
-		panic("no Git execution environment defined")
 	}
+
+	// If none is enabled though, we simply use the first execution environment, which is also
+	// the one with highest priority. This can for example happen in case we only were able to
+	// construct a single execution environment that is currently feature flagged.
+	return cf.execEnvs[0]
 }
 
 // HooksPath returns the path where Gitaly's Git hooks reside.
