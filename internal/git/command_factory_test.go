@@ -184,7 +184,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 
 		t.Run("missing bin_dir", func(t *testing.T) {
 			_, _, err := git.NewExecCommandFactory(config.Cfg{Git: config.Git{}}, git.WithSkipHooks())
-			require.EqualError(t, err, "setting up Git execution environment: cannot use bundled binaries without bin path being set")
+			require.EqualError(t, err, "setting up Git execution environment: constructing bundled Git environment: cannot use bundled binaries without bin path being set")
 		})
 
 		t.Run("missing gitaly-git executable", func(t *testing.T) {

@@ -179,36 +179,6 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 		}, func() {}, nil
 	}
 
-	useBundledBinaries := cfg.Git.UseBundledBinaries
-	if bundledGitPath := os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH"); bundledGitPath != "" {
-		if cfg.BinDir == "" {
-			return executionEnvironments{}, nil, errors.New("cannot use bundled binaries without bin path being set")
-		}
-
-		// We need to symlink pre-built Git binaries into Gitaly's binary directory.
-		// Normally they would of course already exist there, but in tests we create a new
-		// binary directory for each server and thus need to populate it first.
-		for _, binary := range []string{"gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"} {
-			bundledGitBinary := filepath.Join(bundledGitPath, binary)
-			if _, err := os.Stat(bundledGitBinary); err != nil {
-				return executionEnvironments{}, nil, fmt.Errorf("statting %q: %w", binary, err)
-			}
-
-			if err := os.Symlink(bundledGitBinary, filepath.Join(cfg.BinDir, binary)); err != nil {
-				// While Gitaly's Go tests use a temporary binary directory, Ruby
-				// rspecs set up the binary directory to point to our build
-				// directory. They thus already contain the Git binaries and don't
-				// need symlinking.
-				if errors.Is(err, os.ErrExist) {
-					continue
-				}
-				return executionEnvironments{}, nil, fmt.Errorf("symlinking bundled %q: %w", binary, err)
-			}
-		}
-
-		useBundledBinaries = true
-	}
-
 	var execEnvs executionEnvironments
 	var cleanups []func()
 
@@ -221,46 +191,13 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 		cleanups = append(cleanups, cleanup)
 	}
 
-	if useBundledBinaries {
-		// In order to support having a single Git binary only as compared to a complete Git
-		// installation, we create our own GIT_EXEC_PATH which contains symlinks to the Git
-		// binary for executables which Git expects to be present.
-		gitExecPath, err := os.MkdirTemp("", "gitaly-git-exec-path-*")
-		if err != nil {
-			return executionEnvironments{}, nil, fmt.Errorf("creating Git exec path: %w", err)
+	if execEnv, cleanup, err := (BundledGitEnvironmentConstructor{}).Construct(cfg); err != nil {
+		if !errors.Is(err, ErrNotConfigured) {
+			return executionEnvironments{}, nil, fmt.Errorf("constructing bundled Git environment: %w", err)
 		}
-
-		for executable, target := range map[string]string{
-			"git":                "gitaly-git",
-			"git-receive-pack":   "gitaly-git",
-			"git-upload-pack":    "gitaly-git",
-			"git-upload-archive": "gitaly-git",
-			"git-http-backend":   "gitaly-git-http-backend",
-			"git-remote-http":    "gitaly-git-remote-http",
-			"git-remote-https":   "gitaly-git-remote-http",
-			"git-remote-ftp":     "gitaly-git-remote-http",
-			"git-remote-ftps":    "gitaly-git-remote-http",
-		} {
-			if err := os.Symlink(
-				filepath.Join(cfg.BinDir, target),
-				filepath.Join(gitExecPath, executable),
-			); err != nil {
-				return executionEnvironments{}, nil, fmt.Errorf("linking Git executable %q: %w", executable, err)
-			}
-		}
-
-		cleanups = append(cleanups, func() {
-			if err := os.RemoveAll(gitExecPath); err != nil {
-				logrus.WithError(err).Error("cleanup of Git execution environment failed")
-			}
-		})
-
-		execEnvs.bundledGit = ExecutionEnvironment{
-			BinaryPath: filepath.Join(gitExecPath, "git"),
-			EnvironmentVariables: []string{
-				"GIT_EXEC_PATH=" + gitExecPath,
-			},
-		}
+	} else {
+		execEnvs.bundledGit = execEnv
+		cleanups = append(cleanups, cleanup)
 	}
 
 	// If neither an external Git distribution nor a bundled Git was configured we need to
