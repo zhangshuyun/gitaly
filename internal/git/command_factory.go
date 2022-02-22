@@ -49,14 +49,6 @@ type executionEnvironments struct {
 	bundledGit  ExecutionEnvironment
 }
 
-// ExecutionEnvironment describes the environment required to execute a Git command
-type ExecutionEnvironment struct {
-	// BinaryPath is the path to the Git binary.
-	BinaryPath string
-	// EnvironmentVariables are variables which must be set when running the Git binary.
-	EnvironmentVariables []string
-}
-
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
 type CommandFactory interface {
 	// New creates a new command for the repo repository.
@@ -187,11 +179,6 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 		}, func() {}, nil
 	}
 
-	binaryPath := cfg.Git.BinPath
-	if override := os.Getenv("GITALY_TESTING_GIT_BINARY"); binaryPath == "" && override != "" {
-		binaryPath = override
-	}
-
 	useBundledBinaries := cfg.Git.UseBundledBinaries
 	if bundledGitPath := os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH"); bundledGitPath != "" {
 		if cfg.BinDir == "" {
@@ -225,10 +212,13 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 	var execEnvs executionEnvironments
 	var cleanups []func()
 
-	if binaryPath != "" {
-		execEnvs.externalGit = ExecutionEnvironment{
-			BinaryPath: binaryPath,
+	if execEnv, cleanup, err := (DistributedGitEnvironmentConstructor{}).Construct(cfg); err != nil {
+		if !errors.Is(err, ErrNotConfigured) {
+			return executionEnvironments{}, nil, fmt.Errorf("constructing distributed Git environment: %w", err)
 		}
+	} else {
+		execEnvs.externalGit = execEnv
+		cleanups = append(cleanups, cleanup)
 	}
 
 	if useBundledBinaries {
