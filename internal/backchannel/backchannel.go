@@ -31,6 +31,7 @@ package backchannel
 import (
 	"io"
 	"net"
+	"sync"
 
 	"github.com/hashicorp/yamux"
 )
@@ -61,8 +62,17 @@ func muxConfig(logger io.Writer) *yamux.Config {
 // is called.
 type connCloser struct {
 	net.Conn
+	// once ensures the close function is called only once. gRPC may invoke Close() on connCloser
+	// multiple times.
+	once  sync.Once
 	close func() error
+	// closeErr records the error from the first call to close.
+	closeErr error
 }
 
-// Close calls the provided close function.
-func (cc connCloser) Close() error { return cc.close() }
+// Close calls the provided close function. The close function is only executed once and
+// further calls to Close return the error from the first invocation.
+func (cc *connCloser) Close() error {
+	cc.once.Do(func() { cc.closeErr = cc.close() })
+	return cc.closeErr
+}
