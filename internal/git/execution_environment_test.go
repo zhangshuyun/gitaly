@@ -19,18 +19,18 @@ func TestDistributedGitEnvironmentConstructor(t *testing.T) {
 	testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "")
 
 	t.Run("empty configuration fails", func(t *testing.T) {
-		_, _, err := constructor.Construct(config.Cfg{})
+		_, err := constructor.Construct(config.Cfg{})
 		require.Equal(t, git.ErrNotConfigured, err)
 	})
 
 	t.Run("configuration with Git binary path succeeds", func(t *testing.T) {
-		execEnv, cleanup, err := constructor.Construct(config.Cfg{
+		execEnv, err := constructor.Construct(config.Cfg{
 			Git: config.Git{
 				BinPath: "/foo/bar",
 			},
 		})
 		require.NoError(t, err)
-		defer cleanup()
+		defer execEnv.Cleanup()
 
 		require.Equal(t, "/foo/bar", execEnv.BinaryPath)
 		require.Equal(t, []string(nil), execEnv.EnvironmentVariables)
@@ -39,9 +39,9 @@ func TestDistributedGitEnvironmentConstructor(t *testing.T) {
 	t.Run("empty configuration with environment override", func(t *testing.T) {
 		testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "/foo/bar")
 
-		execEnv, cleanup, err := constructor.Construct(config.Cfg{})
+		execEnv, err := constructor.Construct(config.Cfg{})
 		require.NoError(t, err)
-		defer cleanup()
+		defer execEnv.Cleanup()
 
 		require.Equal(t, "/foo/bar", execEnv.BinaryPath)
 		require.Equal(t, []string(nil), execEnv.EnvironmentVariables)
@@ -50,13 +50,13 @@ func TestDistributedGitEnvironmentConstructor(t *testing.T) {
 	t.Run("configuration overrides environment variable", func(t *testing.T) {
 		testhelper.ModifyEnvironment(t, "GITALY_TESTING_GIT_BINARY", "envvar")
 
-		execEnv, cleanup, err := constructor.Construct(config.Cfg{
+		execEnv, err := constructor.Construct(config.Cfg{
 			Git: config.Git{
 				BinPath: "config",
 			},
 		})
 		require.NoError(t, err)
-		defer cleanup()
+		defer execEnv.Cleanup()
 
 		require.Equal(t, "config", execEnv.BinaryPath)
 		require.Equal(t, []string(nil), execEnv.EnvironmentVariables)
@@ -77,12 +77,12 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 	}
 
 	t.Run("disabled bundled Git fails", func(t *testing.T) {
-		_, _, err := constructor.Construct(config.Cfg{})
+		_, err := constructor.Construct(config.Cfg{})
 		require.Equal(t, git.ErrNotConfigured, err)
 	})
 
 	t.Run("bundled Git without binary directory fails", func(t *testing.T) {
-		_, cleanup, err := constructor.Construct(config.Cfg{
+		execEnv, err := constructor.Construct(config.Cfg{
 			Git: config.Git{
 				UseBundledBinaries: true,
 			},
@@ -91,11 +91,11 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 		// It is a bug that this succeeds: if the binary directory is not set we cannot
 		// derive the location of the bundled Git executables either.
 		require.NoError(t, err)
-		defer cleanup()
+		defer execEnv.Cleanup()
 	})
 
 	t.Run("incomplete binary directory succeeds", func(t *testing.T) {
-		_, cleanup, err := constructor.Construct(config.Cfg{
+		execEnv, err := constructor.Construct(config.Cfg{
 			BinDir: seedDirWithExecutables(t, "gitaly-git", "gitaly-git-remote-http"),
 			Git: config.Git{
 				UseBundledBinaries: true,
@@ -105,20 +105,20 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 		// It is a bug that this succeeds, we really should check that all expected binaries
 		// exist. We thus don't bother to check the generated execution environment.
 		require.NoError(t, err)
-		defer cleanup()
+		defer execEnv.Cleanup()
 	})
 
 	t.Run("complete binary directory succeeds", func(t *testing.T) {
 		binDir := seedDirWithExecutables(t, "gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend")
 
-		execEnv, cleanup, err := constructor.Construct(config.Cfg{
+		execEnv, err := constructor.Construct(config.Cfg{
 			BinDir: binDir,
 			Git: config.Git{
 				UseBundledBinaries: true,
 			},
 		})
 		require.NoError(t, err)
-		defer cleanup()
+		defer execEnv.Cleanup()
 
 		// We create a temporary directory where the symlinks are created, and we cannot
 		// predict its exact path.
@@ -137,7 +137,7 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 	})
 
 	t.Run("cleanup removes temporary directory", func(t *testing.T) {
-		execEnv, cleanup, err := constructor.Construct(config.Cfg{
+		execEnv, err := constructor.Construct(config.Cfg{
 			BinDir: seedDirWithExecutables(t, "gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"),
 			Git: config.Git{
 				UseBundledBinaries: true,
@@ -148,20 +148,20 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 		execPrefix := filepath.Dir(execEnv.BinaryPath)
 		require.DirExists(t, execPrefix)
 
-		cleanup()
+		execEnv.Cleanup()
 
 		require.NoDirExists(t, execPrefix)
 	})
 
 	t.Run("bundled Git path without binary directory fails", func(t *testing.T) {
 		testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", "/does/not/exist")
-		_, _, err := constructor.Construct(config.Cfg{})
+		_, err := constructor.Construct(config.Cfg{})
 		require.Equal(t, errors.New("cannot use bundled binaries without bin path being set"), err)
 	})
 
 	t.Run("nonexistent bundled Git path via environment fails", func(t *testing.T) {
 		testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", "/does/not/exist")
-		_, _, err := constructor.Construct(config.Cfg{
+		_, err := constructor.Construct(config.Cfg{
 			BinDir: testhelper.TempDir(t),
 		})
 		require.Error(t, err)
@@ -172,7 +172,7 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 		bundledGitPath := seedDirWithExecutables(t, "gitaly-git", "gitaly-git-remote-http")
 		testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", bundledGitPath)
 
-		_, _, err := constructor.Construct(config.Cfg{
+		_, err := constructor.Construct(config.Cfg{
 			BinDir: testhelper.TempDir(t),
 		})
 		require.Error(t, err)
@@ -183,11 +183,11 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 		bundledGitPath := seedDirWithExecutables(t, "gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend")
 		testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", bundledGitPath)
 
-		execEnv, cleanup, err := constructor.Construct(config.Cfg{
+		execEnv, err := constructor.Construct(config.Cfg{
 			BinDir: testhelper.TempDir(t),
 		})
 		require.NoError(t, err)
-		defer cleanup()
+		defer execEnv.Cleanup()
 
 		require.Equal(t, "git", filepath.Base(execEnv.BinaryPath))
 		execPrefix := filepath.Dir(execEnv.BinaryPath)
@@ -210,7 +210,7 @@ func TestFallbackGitEnvironmentConstructor(t *testing.T) {
 	t.Run("failing lookup of executable causes failure", func(t *testing.T) {
 		testhelper.ModifyEnvironment(t, "PATH", "/does/not/exist")
 
-		_, _, err := constructor.Construct(config.Cfg{})
+		_, err := constructor.Construct(config.Cfg{})
 		require.Equal(t, fmt.Errorf("%w: no git executable found in PATH", git.ErrNotConfigured), err)
 	})
 
@@ -221,9 +221,9 @@ func TestFallbackGitEnvironmentConstructor(t *testing.T) {
 
 		testhelper.ModifyEnvironment(t, "PATH", "/does/not/exist:"+tempDir)
 
-		execEnv, cleanup, err := constructor.Construct(config.Cfg{})
+		execEnv, err := constructor.Construct(config.Cfg{})
 		require.NoError(t, err)
-		defer cleanup()
+		defer execEnv.Cleanup()
 
 		require.Equal(t, gitPath, execEnv.BinaryPath)
 		require.Equal(t, []string(nil), execEnv.EnvironmentVariables)

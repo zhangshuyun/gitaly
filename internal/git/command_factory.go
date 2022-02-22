@@ -181,22 +181,22 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 	var execEnvs executionEnvironments
 	var cleanups []func()
 
-	if execEnv, cleanup, err := (DistributedGitEnvironmentConstructor{}).Construct(cfg); err != nil {
+	if execEnv, err := (DistributedGitEnvironmentConstructor{}).Construct(cfg); err != nil {
 		if !errors.Is(err, ErrNotConfigured) {
 			return executionEnvironments{}, nil, fmt.Errorf("constructing distributed Git environment: %w", err)
 		}
 	} else {
 		execEnvs.externalGit = execEnv
-		cleanups = append(cleanups, cleanup)
+		cleanups = append(cleanups, execEnv.Cleanup)
 	}
 
-	if execEnv, cleanup, err := (BundledGitEnvironmentConstructor{}).Construct(cfg); err != nil {
+	if execEnv, err := (BundledGitEnvironmentConstructor{}).Construct(cfg); err != nil {
 		if !errors.Is(err, ErrNotConfigured) {
 			return executionEnvironments{}, nil, fmt.Errorf("constructing bundled Git environment: %w", err)
 		}
 	} else {
 		execEnvs.bundledGit = execEnv
-		cleanups = append(cleanups, cleanup)
+		cleanups = append(cleanups, execEnv.Cleanup)
 	}
 
 	// If neither an external Git distribution nor a bundled Git was configured we need to
@@ -204,13 +204,13 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 	// in case either one of those has been configured though: we have no clue where system Git
 	// comes from and what its version is, so it's the worst of all choices.
 	if execEnvs.externalGit.BinaryPath == "" && execEnvs.bundledGit.BinaryPath == "" {
-		execEnv, cleanup, err := (FallbackGitEnvironmentConstructor{}).Construct(cfg)
+		execEnv, err := (FallbackGitEnvironmentConstructor{}).Construct(cfg)
 		if err != nil {
 			return executionEnvironments{}, nil, fmt.Errorf("constructing fallback Git environment: %w", err)
 		}
 
 		execEnvs.externalGit = execEnv
-		cleanups = append(cleanups, cleanup)
+		cleanups = append(cleanups, execEnv.Cleanup)
 	}
 
 	return execEnvs, func() {

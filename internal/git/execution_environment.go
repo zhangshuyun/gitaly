@@ -21,6 +21,15 @@ type ExecutionEnvironment struct {
 	BinaryPath string
 	// EnvironmentVariables are variables which must be set when running the Git binary.
 	EnvironmentVariables []string
+
+	cleanup func()
+}
+
+// Cleanup cleans up any state set up by this ExecutionEnvironment.
+func (e ExecutionEnvironment) Cleanup() {
+	if e.cleanup != nil {
+		e.cleanup()
+	}
 }
 
 // DistributedGitEnvironmentConstructor creates ExecutionEnvironments via the Git binary path
@@ -31,24 +40,23 @@ type ExecutionEnvironment struct {
 type DistributedGitEnvironmentConstructor struct{}
 
 // Construct sets up an ExecutionEnvironment for a complete Git distribution. No setup needs to be
-// performed given that the Git environment is expected to be self-contained. The returned function
-// is a cleanup function that shall be executed when the ExecutionEnvironment is no longer used.
+// performed given that the Git environment is expected to be self-contained.
 //
 // For testing purposes, this function overrides the configured Git binary path if the
 // `GITALY_TESTING_GIT_BINARY` environment variable is set.
-func (c DistributedGitEnvironmentConstructor) Construct(cfg config.Cfg) (ExecutionEnvironment, func(), error) {
+func (c DistributedGitEnvironmentConstructor) Construct(cfg config.Cfg) (ExecutionEnvironment, error) {
 	binaryPath := cfg.Git.BinPath
 	if override := os.Getenv("GITALY_TESTING_GIT_BINARY"); binaryPath == "" && override != "" {
 		binaryPath = override
 	}
 
 	if binaryPath == "" {
-		return ExecutionEnvironment{}, nil, ErrNotConfigured
+		return ExecutionEnvironment{}, ErrNotConfigured
 	}
 
 	return ExecutionEnvironment{
 		BinaryPath: binaryPath,
-	}, func() {}, nil
+	}, nil
 }
 
 // BundledGitEnvironmentConstructor sets up an ExecutionEnvironment for a bundled Git installation.
@@ -67,12 +75,12 @@ type BundledGitEnvironmentConstructor struct{}
 //
 // For testing purposes, this function will automatically enable use of bundled Git in case the
 // `GITALY_TESTING_BUNDLED_GIT_PATH` environment variable is set.
-func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ ExecutionEnvironment, _ func(), returnedErr error) {
+func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ ExecutionEnvironment, returnedErr error) {
 	useBundledBinaries := cfg.Git.UseBundledBinaries
 
 	if bundledGitPath := os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH"); bundledGitPath != "" {
 		if cfg.BinDir == "" {
-			return ExecutionEnvironment{}, nil, errors.New("cannot use bundled binaries without bin path being set")
+			return ExecutionEnvironment{}, errors.New("cannot use bundled binaries without bin path being set")
 		}
 
 		// We need to symlink pre-built Git binaries into Gitaly's binary directory.
@@ -81,7 +89,7 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 		for _, binary := range []string{"gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"} {
 			bundledGitBinary := filepath.Join(bundledGitPath, binary)
 			if _, err := os.Stat(bundledGitBinary); err != nil {
-				return ExecutionEnvironment{}, nil, fmt.Errorf("statting %q: %w", binary, err)
+				return ExecutionEnvironment{}, fmt.Errorf("statting %q: %w", binary, err)
 			}
 
 			if err := os.Symlink(bundledGitBinary, filepath.Join(cfg.BinDir, binary)); err != nil {
@@ -92,7 +100,7 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 				if errors.Is(err, os.ErrExist) {
 					continue
 				}
-				return ExecutionEnvironment{}, nil, fmt.Errorf("symlinking bundled %q: %w", binary, err)
+				return ExecutionEnvironment{}, fmt.Errorf("symlinking bundled %q: %w", binary, err)
 			}
 		}
 
@@ -100,7 +108,7 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 	}
 
 	if !useBundledBinaries {
-		return ExecutionEnvironment{}, nil, ErrNotConfigured
+		return ExecutionEnvironment{}, ErrNotConfigured
 	}
 
 	// In order to support having a single Git binary only as compared to a complete Git
@@ -108,7 +116,7 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 	// binary for executables which Git expects to be present.
 	gitExecPath, err := os.MkdirTemp("", "gitaly-git-exec-path-*")
 	if err != nil {
-		return ExecutionEnvironment{}, nil, fmt.Errorf("creating Git exec path: %w", err)
+		return ExecutionEnvironment{}, fmt.Errorf("creating Git exec path: %w", err)
 	}
 
 	cleanup := func() {
@@ -137,7 +145,7 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 			filepath.Join(cfg.BinDir, target),
 			filepath.Join(gitExecPath, executable),
 		); err != nil {
-			return ExecutionEnvironment{}, nil, fmt.Errorf("linking Git executable %q: %w", executable, err)
+			return ExecutionEnvironment{}, fmt.Errorf("linking Git executable %q: %w", executable, err)
 		}
 	}
 
@@ -146,7 +154,8 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 		EnvironmentVariables: []string{
 			"GIT_EXEC_PATH=" + gitExecPath,
 		},
-	}, cleanup, nil
+		cleanup: cleanup,
+	}, nil
 }
 
 // FallbackGitEnvironmentConstructor sets up a fallback execution environment where Git is resolved
@@ -155,14 +164,14 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 type FallbackGitEnvironmentConstructor struct{}
 
 // Construct sets up an execution environment by searching `PATH` for a `git` executable.
-func (c FallbackGitEnvironmentConstructor) Construct(config.Cfg) (ExecutionEnvironment, func(), error) {
+func (c FallbackGitEnvironmentConstructor) Construct(config.Cfg) (ExecutionEnvironment, error) {
 	resolvedPath, err := exec.LookPath("git")
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
-			return ExecutionEnvironment{}, nil, fmt.Errorf("%w: no git executable found in PATH", ErrNotConfigured)
+			return ExecutionEnvironment{}, fmt.Errorf("%w: no git executable found in PATH", ErrNotConfigured)
 		}
 
-		return ExecutionEnvironment{}, nil, fmt.Errorf("resolving git executable: %w", err)
+		return ExecutionEnvironment{}, fmt.Errorf("resolving git executable: %w", err)
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -171,5 +180,5 @@ func (c FallbackGitEnvironmentConstructor) Construct(config.Cfg) (ExecutionEnvir
 
 	return ExecutionEnvironment{
 		BinaryPath: resolvedPath,
-	}, func() {}, nil
+	}, nil
 }
