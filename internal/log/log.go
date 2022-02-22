@@ -120,9 +120,8 @@ func DeciderOption() grpcmwlogrus.Option {
 }
 
 func methodNameMatcherFromEnv() func(string) bool {
-	if pattern :=
-		env.GetString("GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN",
-			defaultLogRequestMethodAllowPattern); pattern != "" {
+	if pattern := env.GetString("GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN",
+		defaultLogRequestMethodAllowPattern); pattern != "" {
 		methodRegex := regexp.MustCompile(pattern)
 
 		return func(fullMethodName string) bool {
@@ -130,9 +129,8 @@ func methodNameMatcherFromEnv() func(string) bool {
 		}
 	}
 
-	if pattern :=
-		env.GetString("GITALY_LOG_REQUEST_METHOD_DENY_PATTERN",
-			defaultLogRequestMethodDenyPattern); pattern != "" {
+	if pattern := env.GetString("GITALY_LOG_REQUEST_METHOD_DENY_PATTERN",
+		defaultLogRequestMethodDenyPattern); pattern != "" {
 		methodRegex := regexp.MustCompile(pattern)
 
 		return func(fullMethodName string) bool {
