@@ -181,9 +181,20 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 
 	t.Run("set using GITALY_TESTING_BUNDLED_GIT_PATH", func(t *testing.T) {
 		bundledGitDir := testhelper.TempDir(t)
-		bundledGitExecutable := filepath.Join(bundledGitDir, "gitaly-git")
-		bundledGitRemoteExecutable := filepath.Join(bundledGitDir, "gitaly-git-remote-http")
-		bundledGitHTTPBackendExecutable := filepath.Join(bundledGitDir, "gitaly-git-http-backend")
+
+		var bundledGitConstructors []git.BundledGitEnvironmentConstructor
+		for _, constructor := range git.ExecutionEnvironmentConstructors {
+			bundledGitConstructor, ok := constructor.(git.BundledGitEnvironmentConstructor)
+			if ok {
+				bundledGitConstructors = append(bundledGitConstructors, bundledGitConstructor)
+			}
+		}
+		require.NotEmpty(t, bundledGitConstructors)
+
+		suffix := bundledGitConstructors[0].Suffix
+
+		bundledGitExecutable := filepath.Join(bundledGitDir, "gitaly-git"+suffix)
+		bundledGitRemoteExecutable := filepath.Join(bundledGitDir, "gitaly-git-remote-http"+suffix)
 
 		testhelper.ModifyEnvironment(t, "GITALY_TESTING_BUNDLED_GIT_PATH", bundledGitDir)
 
@@ -195,7 +206,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 		t.Run("missing gitaly-git executable", func(t *testing.T) {
 			_, _, err := git.NewExecCommandFactory(config.Cfg{BinDir: testhelper.TempDir(t)}, git.WithSkipHooks())
 			require.Error(t, err)
-			require.Contains(t, err.Error(), `statting "gitaly-git":`)
+			require.Contains(t, err.Error(), fmt.Sprintf(`statting "gitaly-git%s":`, suffix))
 			require.True(t, errors.Is(err, os.ErrNotExist))
 		})
 
@@ -204,7 +215,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 
 			_, _, err := git.NewExecCommandFactory(config.Cfg{BinDir: testhelper.TempDir(t)}, git.WithSkipHooks())
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "statting \"gitaly-git-remote-http\":")
+			require.Contains(t, err.Error(), fmt.Sprintf("statting \"gitaly-git-remote-http%s\":", suffix))
 			require.True(t, errors.Is(err, os.ErrNotExist))
 		})
 
@@ -214,14 +225,16 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 
 			_, _, err := git.NewExecCommandFactory(config.Cfg{BinDir: testhelper.TempDir(t)}, git.WithSkipHooks())
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "statting \"gitaly-git-http-backend\":")
+			require.Contains(t, err.Error(), fmt.Sprintf("statting \"gitaly-git-http-backend%s\":", suffix))
 			require.True(t, errors.Is(err, os.ErrNotExist))
 		})
 
 		t.Run("bin_dir with executables", func(t *testing.T) {
-			require.NoError(t, os.WriteFile(bundledGitExecutable, []byte{}, 0o777))
-			require.NoError(t, os.WriteFile(bundledGitRemoteExecutable, []byte{}, 0o777))
-			require.NoError(t, os.WriteFile(bundledGitHTTPBackendExecutable, []byte{}, 0o777))
+			for _, bundledGitConstructor := range bundledGitConstructors {
+				for _, gitBinary := range []string{"gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"} {
+					require.NoError(t, os.WriteFile(filepath.Join(bundledGitDir, gitBinary+bundledGitConstructor.Suffix), []byte{}, 0o777))
+				}
+			}
 
 			binDir := testhelper.TempDir(t)
 
@@ -237,14 +250,14 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 				// executable in Gitaly's BinDir.
 				target, err := os.Readlink(symlinkPath)
 				require.NoError(t, err)
-				require.Equal(t, filepath.Join(binDir, "gitaly-"+executable), target)
+				require.Equal(t, filepath.Join(binDir, "gitaly-"+executable+suffix), target)
 
 				// And in a test setup, the symlink in Gitaly's BinDir must point to
 				// the Git binary pointed to by the GITALY_TESTING_BUNDLED_GIT_PATH
 				// environment variable.
 				target, err = os.Readlink(target)
 				require.NoError(t, err)
-				require.Equal(t, filepath.Join(bundledGitDir, "gitaly-"+executable), target)
+				require.Equal(t, filepath.Join(bundledGitDir, "gitaly-"+executable+suffix), target)
 			}
 		})
 	})
