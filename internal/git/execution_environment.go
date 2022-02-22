@@ -25,6 +25,9 @@ var (
 	// case `IsEnabled()` returns `false` though.
 	ExecutionEnvironmentConstructors = []ExecutionEnvironmentConstructor{
 		BundledGitEnvironmentConstructor{
+			// This is the current default bundled Git environment, which does not yet
+			// have a version suffix.
+			Suffix: "",
 			FeatureFlags: []featureflag.FeatureFlag{
 				featureflag.UseBundledGit,
 			},
@@ -102,6 +105,10 @@ func (c DistributedGitEnvironmentConstructor) Construct(cfg config.Cfg) (Executi
 // Bundled Git installations can be installed with Gitaly's Makefile via `make install
 // WITH_BUNDLED_GIT=YesPlease`.
 type BundledGitEnvironmentConstructor struct {
+	// Suffix is the version suffix used for this specific bundled Git environment. In case
+	// multiple sets of bundled Git versions are installed it is possible to also have multiple
+	// of these bundled Git environments with different suffixes.
+	Suffix string
 	// FeatureFlags is the set of feature flags which must be enabled in order for the bundled
 	// Git environment to be enabled. Note that _all_ feature flags must be set to `true` in the
 	// context.
@@ -129,6 +136,8 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 		// Normally they would of course already exist there, but in tests we create a new
 		// binary directory for each server and thus need to populate it first.
 		for _, binary := range []string{"gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"} {
+			binary := binary + c.Suffix
+
 			bundledGitBinary := filepath.Join(bundledGitPath, binary)
 			if _, err := os.Stat(bundledGitBinary); err != nil {
 				return ExecutionEnvironment{}, fmt.Errorf("statting %q: %w", binary, err)
@@ -173,15 +182,15 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 	}()
 
 	for executable, target := range map[string]string{
-		"git":                "gitaly-git",
-		"git-receive-pack":   "gitaly-git",
-		"git-upload-pack":    "gitaly-git",
-		"git-upload-archive": "gitaly-git",
-		"git-http-backend":   "gitaly-git-http-backend",
-		"git-remote-http":    "gitaly-git-remote-http",
-		"git-remote-https":   "gitaly-git-remote-http",
-		"git-remote-ftp":     "gitaly-git-remote-http",
-		"git-remote-ftps":    "gitaly-git-remote-http",
+		"git":                "gitaly-git" + c.Suffix,
+		"git-receive-pack":   "gitaly-git" + c.Suffix,
+		"git-upload-pack":    "gitaly-git" + c.Suffix,
+		"git-upload-archive": "gitaly-git" + c.Suffix,
+		"git-http-backend":   "gitaly-git-http-backend" + c.Suffix,
+		"git-remote-http":    "gitaly-git-remote-http" + c.Suffix,
+		"git-remote-https":   "gitaly-git-remote-http" + c.Suffix,
+		"git-remote-ftp":     "gitaly-git-remote-http" + c.Suffix,
+		"git-remote-ftps":    "gitaly-git-remote-http" + c.Suffix,
 	} {
 		if err := os.Symlink(
 			filepath.Join(cfg.BinDir, target),

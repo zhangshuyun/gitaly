@@ -202,6 +202,35 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 			require.Equal(t, filepath.Join(bundledGitPath, "gitaly-"+binary), target)
 		}
 	})
+
+	t.Run("with version suffix", func(t *testing.T) {
+		constructor := git.BundledGitEnvironmentConstructor{
+			Suffix: "-v2.35.1",
+		}
+
+		binDir := seedDirWithExecutables(t, "gitaly-git-v2.35.1", "gitaly-git-remote-http-v2.35.1", "gitaly-git-http-backend-v2.35.1")
+
+		execEnv, err := constructor.Construct(config.Cfg{
+			BinDir: binDir,
+			Git: config.Git{
+				UseBundledBinaries: true,
+			},
+		})
+		require.NoError(t, err)
+		defer execEnv.Cleanup()
+
+		require.Equal(t, "git", filepath.Base(execEnv.BinaryPath))
+		execPrefix := filepath.Dir(execEnv.BinaryPath)
+		require.Equal(t, []string{
+			"GIT_EXEC_PATH=" + execPrefix,
+		}, execEnv.EnvironmentVariables)
+
+		for _, binary := range []string{"git", "git-remote-http", "git-http-backend"} {
+			target, err := filepath.EvalSymlinks(filepath.Join(execPrefix, binary))
+			require.NoError(t, err)
+			require.Equal(t, filepath.Join(binDir, "gitaly-"+binary+"-v2.35.1"), target)
+		}
+	})
 }
 
 func TestFallbackGitEnvironmentConstructor(t *testing.T) {
