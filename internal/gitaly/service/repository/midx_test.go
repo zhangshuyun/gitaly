@@ -21,7 +21,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 )
 
 func TestMidxWrite(t *testing.T) {
@@ -268,5 +270,39 @@ func addPackFiles(
 		for _, f := range files {
 			require.NoError(t, os.Chtimes(filepath.Join(packDir, f.Name()), time.Time{}, time.Time{}))
 		}
+	}
+}
+
+func TestMidxRepack_validationChecks(t *testing.T) {
+	t.Parallel()
+	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithDisablePraefect())
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc   string
+		req    *gitalypb.MidxRepackRequest
+		expErr error
+	}{
+		{
+			desc:   "no repository",
+			req:    &gitalypb.MidxRepackRequest{},
+			expErr: status.Error(codes.InvalidArgument, "empty Repository"),
+		},
+		{
+			desc:   "invalid storage",
+			req:    &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: "invalid"}},
+			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "invalid"`),
+		},
+		{
+			desc:   "not existing repository",
+			req:    &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "invalid"}},
+			expErr: status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			//nolint:staticcheck
+			_, err := client.MidxRepack(ctx, tc.req)
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
 	}
 }

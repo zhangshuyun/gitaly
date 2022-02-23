@@ -119,7 +119,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t, testserver.WithDisablePraefect())
+	cfg, repo, _, client := setupRepositoryService(ctx, t, testserver.WithDisablePraefect())
 
 	for _, tc := range []struct {
 		desc   string
@@ -137,12 +137,17 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 		{
 			desc:   "no repository",
 			req:    &gitalypb.WriteCommitGraphRequest{},
-			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: ""`),
+			expErr: status.Error(codes.InvalidArgument, "empty Repository"),
 		},
 		{
 			desc:   "invalid storage",
 			req:    &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{StorageName: "invalid"}},
 			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "invalid"`),
+		},
+		{
+			desc:   "not existing repository",
+			req:    &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "invalid"}},
+			expErr: status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -144,4 +147,44 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 	// if the worktree administrative files are pruned, then we should be able
 	// to checkout another worktree at the same path
 	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
+}
+
+func TestCleanup_invalidRequest(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	for _, tc := range []struct {
+		desc string
+		in   *gitalypb.Repository
+		err  error
+	}{
+		{
+			desc: "no repository provided",
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
+		},
+		{
+			desc: "storage doesn't exist",
+			in:   &gitalypb.Repository{StorageName: "stub"},
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "stub"`, "repo scoped: invalid Repository")),
+		},
+		{
+			desc: "relative path doesn't exist",
+			in:   &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "so/me/some.git"},
+			err: status.Error(
+				codes.NotFound,
+				gitalyOrPraefect(
+					fmt.Sprintf(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, "so/me/some.git")),
+					`mutator call: route repository mutator: get repository id: repository "default"/"so/me/some.git" not found`,
+				),
+			),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			//nolint:staticcheck
+			_, err := client.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: tc.in})
+			testhelper.RequireGrpcError(t, err, tc.err)
+		})
+	}
 }

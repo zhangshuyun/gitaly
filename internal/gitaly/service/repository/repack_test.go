@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestRepackIncrementalSuccess(t *testing.T) {
@@ -101,21 +103,43 @@ func TestRepackIncrementalFailure(t *testing.T) {
 
 	tests := []struct {
 		repo *gitalypb.Repository
-		code codes.Code
+		err  error
 		desc string
 	}{
-		{desc: "nil repo", repo: nil, code: codes.InvalidArgument},
-		{desc: "invalid storage name", repo: &gitalypb.Repository{StorageName: "foo"}, code: codes.InvalidArgument},
-		{desc: "no storage name", repo: &gitalypb.Repository{RelativePath: "bar"}, code: codes.InvalidArgument},
-		{desc: "non-existing repo", repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"}, code: codes.NotFound},
+		{
+			desc: "nil repo",
+			repo: nil,
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty repository", "repo scoped: empty Repository")),
+		},
+		{
+			desc: "invalid storage name",
+			repo: &gitalypb.Repository{StorageName: "foo"},
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "foo"`, "repo scoped: invalid Repository")),
+		},
+		{
+			desc: "no storage name",
+			repo: &gitalypb.Repository{RelativePath: "bar"},
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: ""`, "repo scoped: invalid Repository")),
+		},
+		{
+			desc: "non-existing repo",
+			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"},
+			err: status.Error(
+				codes.NotFound,
+				gitalyOrPraefect(
+					fmt.Sprintf(`GetRepoPath: not a git repository: "%s/bar"`, cfg.Storages[0].Path),
+					`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
+				),
+			),
+		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.desc, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
 			//nolint:staticcheck
-			_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: test.repo})
-			testhelper.RequireGrpcCode(t, err, test.code)
+			_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: tc.repo})
+			testhelper.RequireGrpcError(t, err, tc.err)
 		})
 	}
 }
@@ -222,22 +246,44 @@ func TestRepackFullFailure(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	tests := []struct {
-		repo *gitalypb.Repository
-		code codes.Code
 		desc string
+		repo *gitalypb.Repository
+		err  error
 	}{
-		{desc: "nil repo", repo: nil, code: codes.InvalidArgument},
-		{desc: "invalid storage name", repo: &gitalypb.Repository{StorageName: "foo"}, code: codes.InvalidArgument},
-		{desc: "no storage name", repo: &gitalypb.Repository{RelativePath: "bar"}, code: codes.InvalidArgument},
-		{desc: "non-existing repo", repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"}, code: codes.NotFound},
+		{
+			desc: "nil repo",
+			repo: nil,
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
+		},
+		{
+			desc: "invalid storage name",
+			repo: &gitalypb.Repository{StorageName: "foo"},
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "foo"`, "repo scoped: invalid Repository")),
+		},
+		{
+			desc: "no storage name",
+			repo: &gitalypb.Repository{RelativePath: "bar"},
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: ""`, "repo scoped: invalid Repository")),
+		},
+		{
+			desc: "non-existing repo",
+			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"},
+			err: status.Error(
+				codes.NotFound,
+				gitalyOrPraefect(
+					fmt.Sprintf(`GetRepoPath: not a git repository: "%s/bar"`, cfg.Storages[0].Path),
+					`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
+				),
+			),
+		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.desc, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
 			//nolint:staticcheck
-			_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: test.repo})
-			testhelper.RequireGrpcCode(t, err, test.code)
+			_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: tc.repo})
+			testhelper.RequireGrpcError(t, err, tc.err)
 		})
 	}
 }

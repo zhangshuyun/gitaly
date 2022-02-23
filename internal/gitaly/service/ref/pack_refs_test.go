@@ -15,6 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestPackRefsSuccessfulRequest(t *testing.T) {
@@ -61,4 +63,47 @@ func linesInPackfile(t *testing.T, repoPath string) int {
 		refs++
 	}
 	return refs
+}
+
+func TestPackRefs_invalidRequest(t *testing.T) {
+	t.Parallel()
+
+	cfg, client := setupRefServiceWithoutRepo(t)
+
+	tests := []struct {
+		repo *gitalypb.Repository
+		err  error
+		desc string
+	}{
+		{
+			desc: "nil repo",
+			repo: nil,
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
+		},
+		{
+			desc: "invalid storage name",
+			repo: &gitalypb.Repository{StorageName: "foo"},
+			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "foo"`, "repo scoped: invalid Repository")),
+		},
+		{
+			desc: "non-existing repo",
+			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"},
+			err: status.Error(
+				codes.NotFound,
+				gitalyOrPraefect(
+					fmt.Sprintf(`GetRepoPath: not a git repository: "%s/bar"`, cfg.Storages[0].Path),
+					`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
+				),
+			),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+			//nolint:staticcheck
+			_, err := client.PackRefs(ctx, &gitalypb.PackRefsRequest{Repository: tc.repo})
+			testhelper.RequireGrpcError(t, err, tc.err)
+		})
+	}
 }

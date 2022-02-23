@@ -2,9 +2,8 @@ package ref
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v14/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
@@ -25,7 +24,7 @@ func (s *server) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*g
 
 func validatePackRefsRequest(in *gitalypb.PackRefsRequest) error {
 	if in.GetRepository() == nil {
-		return errors.New("empty repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 	return nil
 }
@@ -36,7 +35,7 @@ func (s *server) packRefs(ctx context.Context, repository repository.GitRepo) er
 		Flags: []git.Option{git.Flag{Name: "--all"}},
 	})
 	if err != nil {
-		return fmt.Errorf("initializing pack-refs command: %v", err)
+		return err
 	}
 
 	return cmd.Wait()
