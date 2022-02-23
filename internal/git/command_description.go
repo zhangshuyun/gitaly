@@ -98,6 +98,15 @@ var commandDescriptions = map[string]commandDescription{
 			// us and unreachable from the outside, this is dangerous. We thus have to
 			// disable redirects in all cases.
 			ConfigPair{Key: "http.followRedirects", Value: "false"},
+
+			// By default, Git will try to recurse into submodules on demand: if a fetch
+			// retrieves a commit that updates a populated submodule, then it recurses
+			// into that submodule and also updates it. Computing this condition takes
+			// some resources though given that we need to check all fetched commits to
+			// find out if any submodule was in fact updated. This is a complete waste
+			// of time though because we never populate submodules at all. We thus
+			// disable recursion into submodules.
+			ConfigPair{Key: "fetch.recurseSubmodules", Value: "no"},
 		}, fsckConfiguration("fetch")...),
 	},
 	"for-each-ref": {
