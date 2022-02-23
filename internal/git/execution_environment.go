@@ -162,6 +162,10 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 		return ExecutionEnvironment{}, ErrNotConfigured
 	}
 
+	if cfg.BinDir == "" {
+		return ExecutionEnvironment{}, errors.New("cannot use bundled binaries without bin path being set")
+	}
+
 	// In order to support having a single Git binary only as compared to a complete Git
 	// installation, we create our own GIT_EXEC_PATH which contains symlinks to the Git
 	// binary for executables which Git expects to be present.

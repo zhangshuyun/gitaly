@@ -82,16 +82,12 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 	})
 
 	t.Run("bundled Git without binary directory fails", func(t *testing.T) {
-		execEnv, err := constructor.Construct(config.Cfg{
+		_, err := constructor.Construct(config.Cfg{
 			Git: config.Git{
 				UseBundledBinaries: true,
 			},
 		})
-
-		// It is a bug that this succeeds: if the binary directory is not set we cannot
-		// derive the location of the bundled Git executables either.
-		require.NoError(t, err)
-		defer execEnv.Cleanup()
+		require.Equal(t, errors.New("cannot use bundled binaries without bin path being set"), err)
 	})
 
 	t.Run("incomplete binary directory succeeds", func(t *testing.T) {
