@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 )
 
 func TestIsPoolPath(t *testing.T) {
@@ -17,6 +18,15 @@ func TestIsPoolPath(t *testing.T) {
 			desc:         "rails pool directory",
 			relativePath: gittest.NewObjectPoolName(t),
 			isPoolPath:   true,
+		},
+		{
+			desc:         "praefect pool path",
+			relativePath: praefectutil.DerivePoolPath(1),
+			isPoolPath:   true,
+		},
+		{
+			desc:         "praefect replica path",
+			relativePath: praefectutil.DeriveReplicaPath(1),
 		},
 		{
 			desc: "empty string",
