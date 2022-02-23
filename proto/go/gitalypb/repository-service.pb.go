@@ -543,10 +543,10 @@ type GarbageCollectRequest struct {
 
 	Repository   *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	CreateBitmap bool        `protobuf:"varint,2,opt,name=create_bitmap,json=createBitmap,proto3" json:"create_bitmap,omitempty"`
-	// If set to 'true' the 'gc' will be triggered with '--prune=24.hours.ago' flag.
-	// This will remove dangling objects from the object storage that were not modified in the last 24 hours.
+	// If set to 'true' the 'gc' will be triggered with '--prune=30.minutes.ago' flag.
+	// This will remove dangling objects from the object storage that were not modified in the last 30 minutes.
 	// If 'false' provided the 'gc' will rely on the default expiration period (2 weeks).
-	// The window of 24 hours exists because of possible concurrent operations running on the same
+	// The window of 30 minutes exists because of possible concurrent operations running on the same
 	// storage and removal of the objects may cause races and fail concurrent operations.
 	Prune bool `protobuf:"varint,3,opt,name=prune,proto3" json:"prune,omitempty"`
 }
