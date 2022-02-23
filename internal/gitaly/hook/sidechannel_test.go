@@ -25,6 +25,8 @@ func TestSidechannel(t *testing.T) {
 	require.NoError(t, err)
 	defer wt.Close()
 
+	require.DirExists(t, wt.socketDir)
+
 	// Server side
 	ctxIn := metadata.OutgoingToIncoming(ctxOut)
 	c, err := GetSidechannel(ctxIn)
@@ -35,8 +37,23 @@ func TestSidechannel(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "ping", string(buf))
 
+	require.NoDirExists(t, wt.socketDir)
+
 	// Client side
 	require.NoError(t, wt.Wait())
+}
+
+func TestSidechannel_cleanup(t *testing.T) {
+	_, wt, err := SetupSidechannel(
+		testhelper.Context(t),
+		func(c *net.UnixConn) error { return nil },
+	)
+	require.NoError(t, err)
+	defer wt.Close()
+
+	require.DirExists(t, wt.socketDir)
+	_ = wt.Close()
+	require.NoDirExists(t, wt.socketDir)
 }
 
 func TestGetSidechannel(t *testing.T) {

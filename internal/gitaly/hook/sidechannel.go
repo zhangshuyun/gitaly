@@ -39,11 +39,16 @@ func GetSidechannel(ctx context.Context) (net.Conn, error) {
 // receives a connection. The address of the listener is stored in the
 // returned context, so that the caller can propagate it to a server. The
 // caller must Close the SidechannelWaiter to prevent resource leaks.
-func SetupSidechannel(ctx context.Context, callback func(*net.UnixConn) error) (context.Context, *SidechannelWaiter, error) {
+func SetupSidechannel(ctx context.Context, callback func(*net.UnixConn) error) (_ context.Context, _ *SidechannelWaiter, err error) {
 	socketDir, err := os.MkdirTemp("", "gitaly")
 	if err != nil {
 		return nil, nil, err
 	}
+	defer func() {
+		if err != nil {
+			_ = os.RemoveAll(socketDir)
+		}
+	}()
 
 	address := path.Join(socketDir, sidechannelSocket)
 	l, err := net.ListenUnix("unix", &net.UnixAddr{Net: "unix", Name: address})
@@ -80,6 +85,12 @@ func (wt *SidechannelWaiter) run(callback func(*net.UnixConn) error) {
 		}
 		defer c.Close()
 
+		// Eagerly remove the socket directory, in case the process exits before
+		// wt.Close() can run.
+		if err := os.RemoveAll(wt.socketDir); err != nil {
+			return err
+		}
+
 		return callback(c)
 	}()
 }
@@ -90,8 +101,12 @@ func (wt *SidechannelWaiter) Close() error {
 	// Run all cleanup actions _before_ checking errors, so that we cannot
 	// forget one.
 	cleanupErrors := []error{
+		// If wt.run() is blocked on AcceptUnix(), this will unblock it.
 		wt.listener.Close(),
+		// Remove the socket directory to prevent garbage in case wt.run() did
+		// not run.
 		os.RemoveAll(wt.socketDir),
+		// Block until wt.run() is done.
 		wt.Wait(),
 	}
 
