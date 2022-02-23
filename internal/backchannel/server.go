@@ -131,7 +131,7 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 	id := s.registry.RegisterBackchannel(backchannelConn)
 	// The returned connection must close the underlying network connection, we redirect the close
 	// to the muxSession which also closes the underlying connection.
-	return connCloser{
+	return &connCloser{
 			Conn: clientToServerStream,
 			close: func() error {
 				s.registry.RemoveBackchannel(id)

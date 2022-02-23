@@ -2,6 +2,7 @@ package backchannel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -152,6 +153,70 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 	// Wait for the clients to finish their calls and close their connections.
 	wg.Wait()
 	require.Equal(t, interceptorInvoked, int32(50))
+}
+
+type mockServer struct {
+	serveFunc func(net.Listener) error
+	stopFunc  func()
+}
+
+func (mock mockServer) Serve(ln net.Listener) error { return mock.serveFunc(ln) }
+func (mock mockServer) Stop()                       { mock.stopFunc() }
+
+func TestHandshaker_idempotentClose(t *testing.T) {
+	clientPipe, serverPipe := net.Pipe()
+
+	stopCalled := 0
+	stopServing := make(chan struct{})
+	serverErr := errors.New("serve error")
+	clientHandshaker := NewClientHandshaker(testhelper.NewDiscardingLogEntry(t), func() Server {
+		return mockServer{
+			serveFunc: func(ln net.Listener) error {
+				<-stopServing
+				return serverErr
+			},
+			stopFunc: func() {
+				close(stopServing)
+				stopCalled++
+			},
+		}
+	})
+
+	closeServer := make(chan struct{})
+	serverClosed := make(chan struct{})
+	go func() {
+		defer close(serverClosed)
+
+		// Discard the magic byte
+		magic := make([]byte, len(magicBytes))
+		_, err := serverPipe.Read(magic)
+		assert.NoError(t, err)
+		assert.Equal(t, magicBytes, magic)
+
+		conn, _, err := NewServerHandshaker(
+			testhelper.NewDiscardingLogEntry(t),
+			NewRegistry(),
+			nil,
+		).Handshake(serverPipe, nil)
+		assert.NoError(t, err)
+
+		<-closeServer
+		for i := 0; i < 2; i++ {
+			assert.NoError(t, conn.Close())
+		}
+	}()
+
+	ctx := testhelper.Context(t)
+	conn, _, err := clientHandshaker.ClientHandshake(insecure.NewCredentials()).ClientHandshake(ctx, "server name", clientPipe)
+	require.NoError(t, err)
+
+	for i := 0; i < 2; i++ {
+		require.Equal(t, serverErr, conn.Close())
+		require.Equal(t, 1, stopCalled)
+	}
+
+	close(closeServer)
+	<-serverClosed
 }
 
 type mockSSHService struct {

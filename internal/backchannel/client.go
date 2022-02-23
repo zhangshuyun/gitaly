@@ -114,7 +114,7 @@ func (ch clientHandshake) serve(ctx context.Context, conn net.Conn) (net.Conn, e
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- server.Serve(muxSession) }()
 
-	return connCloser{
+	return &connCloser{
 		Conn: clientToServer,
 		close: func() error {
 			// Stop closes the listener, which is the muxing session. Closing the
