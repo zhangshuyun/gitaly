@@ -251,6 +251,10 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 			treeID.String(),
 		},
 	}, git.WithStdout(&stdout), git.WithStderr(&stderr), git.WithEnv(commitEnv...)); err != nil {
+		if featureflag.UserSquashImprovedErrorHandling.IsEnabled(ctx) {
+			return "", helper.ErrInternalf("creating squashed commit: %w", err)
+		}
+
 		return "", fmt.Errorf("creating commit: %w", gitError{
 			Err:    err,
 			ErrMsg: stderr.String(),
