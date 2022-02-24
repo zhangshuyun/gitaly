@@ -149,6 +149,22 @@ func (cmd *rebaseSubcommand) rebase(ctx context.Context, request *git2go.RebaseC
 		}
 
 		if err := rebase.Commit(op.Id, nil, &committer, commit.Message()); err != nil {
+			if git.IsErrorCode(err, git.ErrorCodeUnmerged) {
+				index, err := rebase.InmemoryIndex()
+				if err != nil {
+					return "", fmt.Errorf("getting conflicting index: %w", err)
+				}
+
+				conflictingFiles, err := getConflictingFiles(index)
+				if err != nil {
+					return "", fmt.Errorf("getting conflicting files: %w", err)
+				}
+
+				return "", fmt.Errorf("commit %q: %w", op.Id.String(), git2go.ConflictingFilesError{
+					ConflictingFiles: conflictingFiles,
+				})
+			}
+
 			// If the commit has already been applied on the target branch then we can
 			// skip it if we were told to.
 			if request.SkipEmptyCommits && git.IsErrorCode(err, git.ErrorCodeApplied) {

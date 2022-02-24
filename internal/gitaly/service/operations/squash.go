@@ -183,6 +183,35 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 		SkipEmptyCommits: true,
 	})
 	if err != nil {
+		if featureflag.UserSquashImprovedErrorHandling.IsEnabled(ctx) {
+			var conflictErr git2go.ConflictingFilesError
+
+			if errors.As(err, &conflictErr) {
+				conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFiles))
+				for _, conflictingFile := range conflictErr.ConflictingFiles {
+					conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
+				}
+
+				detailedErr, err := helper.ErrWithDetails(
+					helper.ErrInternalf("rebasing commits: %w", err),
+					&gitalypb.UserSquashError{
+						Error: &gitalypb.UserSquashError_RebaseConflict{
+							RebaseConflict: &gitalypb.MergeConflictError{
+								ConflictingFiles: conflictingFiles,
+							},
+						},
+					},
+				)
+				if err != nil {
+					return "", helper.ErrInternalf("error details: %w", err)
+				}
+
+				return "", detailedErr
+			}
+
+			return "", helper.ErrInternalf("rebasing commits: %w", err)
+		}
+
 		return "", fmt.Errorf("rebasing end onto start commit: %w", gitError{
 			Err:    err,
 			ErrMsg: err.Error(),

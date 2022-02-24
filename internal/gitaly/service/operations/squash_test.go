@@ -486,8 +486,11 @@ func TestUserSquash_validation(t *testing.T) {
 }
 
 func TestUserSquash_conflicts(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.UserSquashImprovedErrorHandling).Run(t, testUserSquashConflicts)
+}
+
+func testUserSquashConflicts(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -514,11 +517,27 @@ func TestUserSquash_conflicts(t *testing.T) {
 		StartSha:      theirs.String(),
 		EndSha:        ours.String(),
 	})
-	require.NoError(t, err)
 
-	testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
-		GitError: fmt.Sprintf("rebase: commit %q: conflicts have not been resolved", ours),
-	}, response)
+	if featureflag.UserSquashImprovedErrorHandling.IsEnabled(ctx) {
+		testhelper.RequireGrpcError(t, errWithDetails(t,
+			helper.ErrInternalf("rebasing commits: rebase: commit %q: there are conflicting files", ours),
+			&gitalypb.UserSquashError{
+				Error: &gitalypb.UserSquashError_RebaseConflict{
+					RebaseConflict: &gitalypb.MergeConflictError{
+						ConflictingFiles: [][]byte{
+							[]byte("b"),
+						},
+					},
+				},
+			},
+		), err)
+		require.Nil(t, response)
+	} else {
+		require.NoError(t, err)
+		testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
+			GitError: fmt.Sprintf("rebase: commit %q: there are conflicting files", ours),
+		}, response)
+	}
 }
 
 func TestUserSquash_ancestry(t *testing.T) {

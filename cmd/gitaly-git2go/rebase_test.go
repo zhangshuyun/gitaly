@@ -156,7 +156,7 @@ func TestRebase_rebase(t *testing.T) {
 		{
 			desc:        "Rebase with conflict",
 			branch:      "rebase-encoding-failure-trigger",
-			expectedErr: "rebase: commit \"eb8f5fb9523b868cef583e09d4bf70b99d2dd404\": conflicts have not been resolved",
+			expectedErr: "rebase: commit \"eb8f5fb9523b868cef583e09d4bf70b99d2dd404\": there are conflicting files",
 		},
 		{
 			desc:        "Orphaned branch",
