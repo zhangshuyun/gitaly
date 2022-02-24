@@ -307,7 +307,7 @@ func estimateLooseObjectCount(repo *localrepo.Repo) (int64, error) {
 func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
 	// Pool repositories must never prune any objects, or otherwise we may corrupt members of
 	// that pool if they still refer to that object.
-	if strings.HasPrefix(repo.GetRelativePath(), "@pools") {
+	if IsPoolPath(repo.GetRelativePath()) {
 		return false, nil
 	}
 
