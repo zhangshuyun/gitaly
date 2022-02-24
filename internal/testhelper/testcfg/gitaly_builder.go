@@ -13,6 +13,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
+// UnconfiguredSocketPath is used to bypass config validation errors
+// when building the configuration. The socket path is now known yet
+// at the time of building the configuration and is substituted later
+// when the service is actually spun up.
+const UnconfiguredSocketPath = "it is a stub to bypass Validate method"
+
 // Option is a configuration option for the builder.
 type Option func(*GitalyCfgBuilder)
 
@@ -74,7 +80,7 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 
 	cfg := gc.cfg
 	if cfg.SocketPath == "" {
-		cfg.SocketPath = "it is a stub to bypass Validate method"
+		cfg.SocketPath = UnconfiguredSocketPath
 	}
 
 	root := testhelper.TempDir(t)

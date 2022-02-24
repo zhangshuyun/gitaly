@@ -93,7 +93,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 
 	// Compare the repository up front so that we can use require.Equal for
 	// the remaining values.
-	testhelper.ProtoEqual(t, repo, payload.Repo)
+	testhelper.ProtoEqual(t, gittest.RewrittenRepository(ctx, t, cfg, repo), payload.Repo)
 	payload.Repo = nil
 
 	// If running tests with Praefect, then the transaction would be set, but we have no way of
@@ -625,7 +625,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, testRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -644,7 +644,6 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	cfg.Gitlab.SecretFile = gitlab.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
 
 	push := newTestPush(t, cfg, nil)
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
 	oldHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "HEAD"))
 
 	changes := fmt.Sprintf("%s %s refs/heads/master\n", oldHead, push.newHead)

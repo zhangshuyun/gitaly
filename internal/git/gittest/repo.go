@@ -14,6 +14,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -92,6 +93,17 @@ type CreateRepositoryConfig struct {
 	Seed string
 }
 
+func dialService(ctx context.Context, t testing.TB, cfg config.Cfg) *grpc.ClientConn {
+	dialOptions := []grpc.DialOption{}
+	if cfg.Auth.Token != "" {
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
+	}
+
+	conn, err := client.DialContext(ctx, cfg.SocketPath, dialOptions)
+	require.NoError(t, err)
+	return conn
+}
+
 // CreateRepository creates a new repository and returns it and its absolute path.
 func CreateRepository(ctx context.Context, t testing.TB, cfg config.Cfg, configs ...CreateRepositoryConfig) (*gitalypb.Repository, string) {
 	t.Helper()
@@ -105,14 +117,7 @@ func CreateRepository(ctx context.Context, t testing.TB, cfg config.Cfg, configs
 
 	conn := opts.ClientConn
 	if conn == nil {
-		dialOptions := []grpc.DialOption{}
-		if cfg.Auth.Token != "" {
-			dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
-		}
-
-		var err error
-		conn, err = client.DialContext(ctx, cfg.SocketPath, dialOptions)
-		require.NoError(t, err)
+		conn = dialService(ctx, t, cfg)
 		t.Cleanup(func() { conn.Close() })
 	}
 
@@ -166,7 +171,47 @@ func CreateRepository(ctx context.Context, t testing.TB, cfg config.Cfg, configs
 	// if the tests modify the returned repository.
 	clonedRepo := proto.Clone(repository).(*gitalypb.Repository)
 
-	return clonedRepo, filepath.Join(storage.Path, testhelper.GetReplicaPath(ctx, t, conn, repository))
+	return clonedRepo, filepath.Join(storage.Path, getReplicaPath(ctx, t, conn, repository))
+}
+
+// GetReplicaPath retrieves the repository's replica path if the test has been
+// run with Praefect in front of it. This is necessary if the test creates a repository
+// through Praefect and peeks into the filesystem afterwards. Conn should be pointing to
+// Praefect.
+func GetReplicaPath(ctx context.Context, t testing.TB, cfg config.Cfg, repo repository.GitRepo) string {
+	conn := dialService(ctx, t, cfg)
+	defer conn.Close()
+
+	return getReplicaPath(ctx, t, conn, repo)
+}
+
+func getReplicaPath(ctx context.Context, t testing.TB, conn *grpc.ClientConn, repo repository.GitRepo) string {
+	metadata, err := gitalypb.NewPraefectInfoServiceClient(conn).GetRepositoryMetadata(
+		ctx, &gitalypb.GetRepositoryMetadataRequest{
+			Query: &gitalypb.GetRepositoryMetadataRequest_Path_{
+				Path: &gitalypb.GetRepositoryMetadataRequest_Path{
+					VirtualStorage: repo.GetStorageName(),
+					RelativePath:   repo.GetRelativePath(),
+				},
+			},
+		})
+	if status, ok := status.FromError(err); ok && status.Code() == codes.Unimplemented && status.Message() == "unknown service gitaly.PraefectInfoService" {
+		// The repository is stored at relative path if the test is running without Praefect in front.
+		return repo.GetRelativePath()
+	}
+	require.NoError(t, err)
+
+	return metadata.ReplicaPath
+}
+
+// RewrittenRepository returns the repository as it would be received by a Gitaly after being rewritten by Praefect.
+// This should be used when the repository is being accessed through the filesystem to ensure the access path is
+// correct. If the test is not running with Praefect in front, it returns the an unaltered copy of repository.
+func RewrittenRepository(ctx context.Context, t testing.TB, cfg config.Cfg, repository *gitalypb.Repository) *gitalypb.Repository {
+	// Don't modify the original repository.
+	rewritten := proto.Clone(repository).(*gitalypb.Repository)
+	rewritten.RelativePath = GetReplicaPath(ctx, t, cfg, repository)
+	return rewritten
 }
 
 // InitRepoOpts contains options for InitRepo.

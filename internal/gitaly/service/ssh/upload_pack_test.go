@@ -622,14 +622,14 @@ func TestUploadPackCloneGitFailure(t *testing.T) {
 
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
 	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()
 
-	configPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath, "config")
+	configPath := filepath.Join(repoPath, "config")
 	gitconfig, err := os.Create(configPath)
 	require.NoError(t, err)
 

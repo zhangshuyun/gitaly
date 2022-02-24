@@ -148,7 +148,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			gittest.RequireObjectExists(t, cfg, repoPath, secondCommitID)
 
 			repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repoProto)
-			repoCopy.RelativePath = getReplicaPath(ctx, t, client, repoCopy)
+			repoCopy.RelativePath = gittest.GetReplicaPath(ctx, t, cfg, repoCopy)
 			repoCopyPath, err := locator.GetRepoPath(repoCopy)
 			require.NoError(t, err)
 
@@ -227,7 +227,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 		}()
 
 		repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repoProto)
-		repoCopy.RelativePath = getReplicaPath(ctx, t, client, repoCopy)
+		repoCopy.RelativePath = gittest.GetReplicaPath(ctx, t, cfg, repoCopy)
 		repoCopyPath, err := locator.GetRepoPath(repoCopy)
 		require.NoError(t, err)
 

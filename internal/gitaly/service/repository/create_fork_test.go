@@ -107,7 +107,7 @@ func TestCreateFork_successful(t *testing.T) {
 			if !tt.secure {
 				// Only the insecure test cases run through Praefect, so we only rewrite the path
 				// in that case.
-				replicaPath = getReplicaPath(ctx, t, client, forkedRepo)
+				replicaPath = gittest.GetReplicaPath(ctx, t, cfg, forkedRepo)
 			}
 
 			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, replicaPath)
@@ -163,7 +163,7 @@ func TestCreateFork_refs(t *testing.T) {
 	storagePath, err := config.NewLocator(cfg).GetStorageByName(targetRepo.GetStorageName())
 	require.NoError(t, err)
 
-	targetRepoPath := filepath.Join(storagePath, getReplicaPath(ctx, t, client, targetRepo))
+	targetRepoPath := filepath.Join(storagePath, gittest.GetReplicaPath(ctx, t, cfg, targetRepo))
 
 	require.Equal(t,
 		[]string{
@@ -186,7 +186,6 @@ func TestCreateFork_targetExists(t *testing.T) {
 	for _, tc := range []struct {
 		desc                          string
 		seed                          func(t *testing.T, targetPath string)
-		expectedErr                   error
 		expectedErrWithAtomicCreation error
 	}{
 		{
@@ -206,7 +205,6 @@ func TestCreateFork_targetExists(t *testing.T) {
 					0o644,
 				))
 			},
-			expectedErr:                   helper.ErrInvalidArgumentf("CreateFork: destination directory is not empty"),
 			expectedErrWithAtomicCreation: helper.ErrAlreadyExistsf("creating fork: repository exists already"),
 		},
 		{
@@ -215,7 +213,6 @@ func TestCreateFork_targetExists(t *testing.T) {
 				require.NoError(t, os.MkdirAll(filepath.Dir(targetPath), 0o770))
 				require.NoError(t, os.WriteFile(targetPath, nil, 0o644))
 			},
-			expectedErr:                   helper.ErrInvalidArgumentf("CreateFork: destination path exists"),
 			expectedErrWithAtomicCreation: helper.ErrAlreadyExistsf("creating fork: repository exists already"),
 		},
 	} {
@@ -227,7 +224,9 @@ func TestCreateFork_targetExists(t *testing.T) {
 			forkedRepo := &gitalypb.Repository{
 				// As this test can run with Praefect in front of it, we'll use the next replica path Praefect will
 				// assign in order to ensure this repository creation conflicts even with Praefect in front of it.
-				RelativePath: praefectutil.DeriveReplicaPath(1),
+				// As the source repository created in the setup is the first one, this would get the repository
+				// ID 2.
+				RelativePath: praefectutil.DeriveReplicaPath(2),
 				StorageName:  repo.StorageName,
 			}
 

@@ -9,9 +9,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 // Repo represents a local Git repository.
@@ -36,6 +40,15 @@ func New(locator storage.Locator, gitCmdFactory git.CommandFactory, catfileCache
 // dependencies ad-hoc from the given config.
 func NewTestRepo(t testing.TB, cfg config.Cfg, repo repository.GitRepo, factoryOpts ...git.ExecCommandFactoryOption) *Repo {
 	t.Helper()
+
+	if cfg.SocketPath != testcfg.UnconfiguredSocketPath {
+		repo = gittest.RewrittenRepository(testhelper.Context(t), t, cfg, &gitalypb.Repository{
+			StorageName:                   repo.GetStorageName(),
+			RelativePath:                  repo.GetRelativePath(),
+			GitObjectDirectory:            repo.GetGitObjectDirectory(),
+			GitAlternateObjectDirectories: repo.GetGitAlternateObjectDirectories(),
+		})
+	}
 
 	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, factoryOpts...)
 	t.Cleanup(cleanup)

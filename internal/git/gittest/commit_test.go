@@ -1,4 +1,4 @@
-package gittest
+package gittest_test
 
 import (
 	"testing"
@@ -6,13 +6,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func TestWriteCommit(t *testing.T) {
-	cfg, repoProto, repoPath := setup(t)
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	ctx := testhelper.Context(t)
 
@@ -23,8 +26,8 @@ func TestWriteCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	defaultCommitter := &gitalypb.CommitAuthor{
-		Name:  []byte(committerName),
-		Email: []byte(committerEmail),
+		Name:  []byte("Scrooge McDuck"),
+		Email: []byte("scrooge@mcduck.com"),
 	}
 	defaultParentID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 
@@ -40,9 +43,9 @@ func TestWriteCommit(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc                string
-		opts                []WriteCommitOption
+		opts                []gittest.WriteCommitOption
 		expectedCommit      *gitalypb.GitCommit
-		expectedTreeEntries []TreeEntry
+		expectedTreeEntries []gittest.TreeEntry
 		expectedRevUpdate   git.Revision
 	}{
 		{
@@ -60,8 +63,8 @@ func TestWriteCommit(t *testing.T) {
 		},
 		{
 			desc: "with commit message",
-			opts: []WriteCommitOption{
-				WithMessage("my custom message\n\nfoobar\n"),
+			opts: []gittest.WriteCommitOption{
+				gittest.WithMessage("my custom message\n\nfoobar\n"),
 			},
 			expectedCommit: &gitalypb.GitCommit{
 				Author:    defaultCommitter,
@@ -76,8 +79,8 @@ func TestWriteCommit(t *testing.T) {
 		},
 		{
 			desc: "with no parents",
-			opts: []WriteCommitOption{
-				WithParents(),
+			opts: []gittest.WriteCommitOption{
+				gittest.WithParents(),
 			},
 			expectedCommit: &gitalypb.GitCommit{
 				Author:    defaultCommitter,
@@ -90,8 +93,8 @@ func TestWriteCommit(t *testing.T) {
 		},
 		{
 			desc: "with multiple parents",
-			opts: []WriteCommitOption{
-				WithParents(revisions["refs/heads/master"], revisions["refs/heads/master~"]),
+			opts: []gittest.WriteCommitOption{
+				gittest.WithParents(revisions["refs/heads/master"], revisions["refs/heads/master~"]),
 			},
 			expectedCommit: &gitalypb.GitCommit{
 				Author:    defaultCommitter,
@@ -107,8 +110,8 @@ func TestWriteCommit(t *testing.T) {
 		},
 		{
 			desc: "with branch",
-			opts: []WriteCommitOption{
-				WithBranch("foo"),
+			opts: []gittest.WriteCommitOption{
+				gittest.WithBranch("foo"),
 			},
 			expectedCommit: &gitalypb.GitCommit{
 				Author:    defaultCommitter,
@@ -124,8 +127,8 @@ func TestWriteCommit(t *testing.T) {
 		},
 		{
 			desc: "with tree entry",
-			opts: []WriteCommitOption{
-				WithTreeEntries(TreeEntry{
+			opts: []gittest.WriteCommitOption{
+				gittest.WithTreeEntries(gittest.TreeEntry{
 					Content: "foobar",
 					Mode:    "100644",
 					Path:    "file",
@@ -141,7 +144,7 @@ func TestWriteCommit(t *testing.T) {
 					defaultParentID,
 				},
 			},
-			expectedTreeEntries: []TreeEntry{
+			expectedTreeEntries: []gittest.TreeEntry{
 				{
 					Content: "foobar",
 					Mode:    "100644",
@@ -151,15 +154,15 @@ func TestWriteCommit(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			oid := WriteCommit(t, cfg, repoPath, tc.opts...)
+			oid := gittest.WriteCommit(t, cfg, repoPath, tc.opts...)
 
 			commit, err := catfile.GetCommit(ctx, objectReader, oid.Revision())
 			require.NoError(t, err)
 
-			CommitEqual(t, tc.expectedCommit, commit)
+			gittest.CommitEqual(t, tc.expectedCommit, commit)
 
 			if tc.expectedTreeEntries != nil {
-				RequireTree(t, cfg, repoPath, oid.String(), tc.expectedTreeEntries)
+				gittest.RequireTree(t, cfg, repoPath, oid.String(), tc.expectedTreeEntries)
 			}
 
 			if tc.expectedRevUpdate != "" {

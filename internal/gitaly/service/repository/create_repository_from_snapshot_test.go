@@ -106,14 +106,14 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 		HttpHost:   host,
 	}
 
-	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
-	client := newRepositoryClient(t, cfg, serverSocketPath)
+	cfg.SocketPath = runRepositoryServerWithConfig(t, cfg, nil)
+	client := newRepositoryClient(t, cfg, cfg.SocketPath)
 
 	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
-	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, repo))
+	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo))
 	require.DirExists(t, repoAbsolutePath)
 	for _, entry := range entries {
 		if strings.HasSuffix(entry, "/") {

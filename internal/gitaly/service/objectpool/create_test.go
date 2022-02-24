@@ -30,9 +30,8 @@ func TestCreate(t *testing.T) {
 
 	_, err := client.CreateObjectPool(ctx, poolReq)
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
+
+	pool = rewrittenObjectPool(ctx, t, cfg, pool)
 
 	// Checks if the underlying repository is valid
 	require.True(t, pool.IsValid())

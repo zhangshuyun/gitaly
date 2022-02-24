@@ -379,7 +379,8 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	}
 
 	assertNormalResponse(gitalyServer.Address())
-	require.FileExists(t, pathToCachedResponse(t, ctx, cache, rpcRequest))
+	rewrittenRequest := &gitalypb.InfoRefsRequest{Repository: gittest.RewrittenRepository(ctx, t, cfg, repo)}
+	require.FileExists(t, pathToCachedResponse(t, ctx, cache, rewrittenRequest))
 
 	replacedContents := []string{
 		"first line",
@@ -389,7 +390,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	}
 
 	// replace cached response file to prove the info-ref uses the cache
-	replaceCachedResponse(t, ctx, cache, rpcRequest, strings.Join(replacedContents, "\n"))
+	replaceCachedResponse(t, ctx, cache, rewrittenRequest, strings.Join(replacedContents, "\n"))
 	response, err := makeInfoRefsUploadPackRequest(ctx, t, gitalyServer.Address(), cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response),
@@ -397,7 +398,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	)
 
 	invalidateCacheForRepo := func() {
-		ender, err := cache.StartLease(rpcRequest.Repository)
+		ender, err := cache.StartLease(rewrittenRequest.Repository)
 		require.NoError(t, err)
 		require.NoError(t, ender.EndLease(setInfoRefsUploadPackMethod(ctx)))
 	}

@@ -52,7 +52,7 @@ func TestCreateRepository_successful(t *testing.T) {
 	_, err := client.CreateRepository(ctx, req)
 	require.NoError(t, err)
 
-	repoDir := filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, repo))
+	repoDir := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo))
 
 	require.NoError(t, unix.Access(repoDir, unix.R_OK))
 	require.NoError(t, unix.Access(repoDir, unix.W_OK))
@@ -143,7 +143,7 @@ func TestCreateRepository_transactional(t *testing.T) {
 		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
 		require.NoError(t, err)
 
-		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, getReplicaPath(ctx, t, client, repo)))
+		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo)))
 		require.Equal(t, 2, len(txManager.Votes()), "expected transactional vote")
 	})
 

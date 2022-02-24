@@ -82,7 +82,9 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			altPath, err := repo.InfoAlternatesPath()

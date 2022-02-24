@@ -103,7 +103,8 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
-	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+	ctx := testhelper.Context(t)
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed:         gittest.SeedGitLabTest,
 		RelativePath: "gitlab-test-ssh-receive-pack.git",
 	})
@@ -141,7 +142,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	// the remaining values.
 	testhelper.ProtoEqual(t, &gitalypb.Repository{
 		StorageName:   cfg.Storages[0].Name,
-		RelativePath:  "gitlab-test-ssh-receive-pack.git",
+		RelativePath:  gittest.GetReplicaPath(ctx, t, cfg, repo),
 		GlProjectPath: glProjectPath,
 		GlRepository:  glRepository,
 	}, payload.Repo)
@@ -271,18 +272,13 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Create(ctx, repo))
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
 
 	require.NoError(t, pool.Link(ctx, repo))
 
 	commitID := gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithBranch(t.Name()))
 
 	// First request
-	require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{
-		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: repo.GetRelativePath()}, GlId: "user-123",
-	}))
+	require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{Repository: repoProto, GlId: "user-123"}))
 
 	require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{Stdin: []byte("0000")}))
 	require.NoError(t, stream.CloseSend())

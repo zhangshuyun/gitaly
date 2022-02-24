@@ -25,10 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -39,29 +35,6 @@ const (
 	// DefaultStorageName is the default name of the Gitaly storage.
 	DefaultStorageName = "default"
 )
-
-// GetReplicaPath retrieves the repository's replica path if the test has been
-// run with Praefect in front of it. This is necessary if the test creates a repository
-// through Praefect and peeks into the filesystem afterwards. Conn should be pointing to
-// Praefect.
-func GetReplicaPath(ctx context.Context, t testing.TB, conn *grpc.ClientConn, repo *gitalypb.Repository) string {
-	metadata, err := gitalypb.NewPraefectInfoServiceClient(conn).GetRepositoryMetadata(
-		ctx, &gitalypb.GetRepositoryMetadataRequest{
-			Query: &gitalypb.GetRepositoryMetadataRequest_Path_{
-				Path: &gitalypb.GetRepositoryMetadataRequest_Path{
-					VirtualStorage: repo.GetStorageName(),
-					RelativePath:   repo.GetRelativePath(),
-				},
-			},
-		})
-	if status, ok := status.FromError(err); ok && status.Code() == codes.Unimplemented && status.Message() == "unknown service gitaly.PraefectInfoService" {
-		// The repository is stored at relative path if the test is running without Praefect in front.
-		return repo.RelativePath
-	}
-	require.NoError(t, err)
-
-	return metadata.ReplicaPath
-}
 
 // IsPraefectEnabled returns whether this testing run is done with Praefect in front of the Gitaly.
 func IsPraefectEnabled() bool {

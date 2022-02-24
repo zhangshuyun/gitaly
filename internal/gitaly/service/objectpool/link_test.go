@@ -156,6 +156,8 @@ func TestLinkNoPool(t *testing.T) {
 	_, err = client.LinkRepositoryToObjectPool(ctx, request)
 	require.NoError(t, err)
 
+	pool = rewrittenObjectPool(ctx, t, cfg, pool)
+
 	poolRepoPath, err := locator.GetRepoPath(pool)
 	require.NoError(t, err)
 
