@@ -618,11 +618,6 @@ message UserSquashRequest {
   Repository repository = 1 [(target_repository)=true];
   // user is used for authorization checks.
   User user = 2;
-  // SquashId used to identify the path where the worktree was created. Given
-  // that Gitaly does in-memory squashes now, this is useless and will be
-  // ignored. There is no replacement for this.
-  string squash_id = 3 [deprecated=true];
-  reserved 4;
   // start_sha is the object ID of the start commit of the range which shall be
   // squashed. Must be an ancestor of end_sha.
   string start_sha = 5;
@@ -636,6 +631,9 @@ message UserSquashRequest {
   // timestamp is the optional timestamp to use for the squashed commit as
   // committer date. If it's not set, the current time will be used.
   google.protobuf.Timestamp timestamp = 9;
+
+  reserved 3, 4;
+  reserved "squash_id";
 }
 
 message UserSquashResponse {

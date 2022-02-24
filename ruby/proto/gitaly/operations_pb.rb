@@ -228,7 +228,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.UserSquashRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :user, :message, 2, "gitaly.User"
-      optional :squash_id, :string, 3
       optional :start_sha, :string, 5
       optional :end_sha, :string, 6
       optional :author, :message, 7, "gitaly.User"
