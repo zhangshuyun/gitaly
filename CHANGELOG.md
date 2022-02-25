@@ -71,6 +71,10 @@ No changes.
 - [chore: Add ssh signature test case](gitlab-org/gitaly@4a6b02ba6a4dfb6306426e4553a6b8f0931a3fcf) ([merge request](gitlab-org/gitaly!4277))
 - [client: Expose sidechannel server methods](gitlab-org/gitaly@bf41063be6f60730d5b1f2f1862089e74097ea64) ([merge request](gitlab-org/gitaly!4266))
 
+## 14.7.4 (2022-02-25)
+
+No changes.
+
 ## 14.7.3 (2022-02-15)
 
 No changes.
