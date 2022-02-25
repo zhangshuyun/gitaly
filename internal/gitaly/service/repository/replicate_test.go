@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
@@ -41,7 +42,10 @@ import (
 
 func TestReplicateRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testReplicateRepository)
+	testhelper.NewFeatureSets(
+		featureflag.FetchInternalWithSidechannel,
+		featureflag.TransactionalSymbolicRefUpdates,
+	).Run(t, testReplicateRepository)
 }
 
 func testReplicateRepository(t *testing.T, ctx context.Context) {
@@ -116,7 +120,10 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 
 func TestReplicateRepositoryTransactional(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testReplicateRepositoryTransactional)
+	testhelper.NewFeatureSets(
+		featureflag.FetchInternalWithSidechannel,
+		featureflag.TransactionalSymbolicRefUpdates,
+	).Run(t, testReplicateRepositoryTransactional)
 }
 
 func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
@@ -299,7 +306,10 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 
 func TestReplicateRepository_BadRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testReplicateRepositoryBadRepository)
+	testhelper.NewFeatureSets(
+		featureflag.FetchInternalWithSidechannel,
+		featureflag.TransactionalSymbolicRefUpdates,
+	).Run(t, testReplicateRepositoryBadRepository)
 }
 
 func testReplicateRepositoryBadRepository(t *testing.T, ctx context.Context) {
@@ -384,7 +394,10 @@ func testReplicateRepositoryBadRepository(t *testing.T, ctx context.Context) {
 
 func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testReplicateRepositoryFailedFetchInternalRemote)
+	testhelper.NewFeatureSets(
+		featureflag.FetchInternalWithSidechannel,
+		featureflag.TransactionalSymbolicRefUpdates,
+	).Run(t, testReplicateRepositoryFailedFetchInternalRemote)
 }
 
 func testReplicateRepositoryFailedFetchInternalRemote(t *testing.T, ctx context.Context) {
@@ -467,7 +480,10 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() gitalySSHParams 
 
 func TestFetchInternalRemote_successful(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testFetchInternalRemoteSuccessful)
+	testhelper.NewFeatureSets(
+		featureflag.FetchInternalWithSidechannel,
+		featureflag.TransactionalSymbolicRefUpdates,
+	).Run(t, testFetchInternalRemoteSuccessful)
 }
 
 func testFetchInternalRemoteSuccessful(t *testing.T, ctx context.Context) {
@@ -528,7 +544,7 @@ func testFetchInternalRemoteSuccessful(t *testing.T, ctx context.Context) {
 
 	// Use the `assert` package such that we can get information about why hooks have failed via
 	// the hook logs in case it did fail unexpectedly.
-	assert.NoError(t, fetchInternalRemote(ctx, connsPool, localRepo, remoteRepo))
+	assert.NoError(t, fetchInternalRemote(ctx, &transaction.MockManager{}, connsPool, localRepo, remoteRepo))
 
 	hookLogs := filepath.Join(localCfg.Logging.Dir, "gitaly_hooks.log")
 	require.FileExists(t, hookLogs)
@@ -556,7 +572,10 @@ func testFetchInternalRemoteSuccessful(t *testing.T, ctx context.Context) {
 
 func TestFetchInternalRemote_failure(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testFetchInternalRemoteFailure)
+	testhelper.NewFeatureSets(
+		featureflag.FetchInternalWithSidechannel,
+		featureflag.TransactionalSymbolicRefUpdates,
+	).Run(t, testFetchInternalRemoteFailure)
 }
 
 func testFetchInternalRemoteFailure(t *testing.T, ctx context.Context) {
@@ -567,7 +586,7 @@ func testFetchInternalRemoteFailure(t *testing.T, ctx context.Context) {
 	connsPool := client.NewPool()
 	defer connsPool.Close()
 
-	err := fetchInternalRemote(ctx, connsPool, repo, &gitalypb.Repository{
+	err := fetchInternalRemote(ctx, &transaction.MockManager{}, connsPool, repo, &gitalypb.Repository{
 		StorageName:  repoProto.GetStorageName(),
 		RelativePath: "does-not-exist.git",
 	})

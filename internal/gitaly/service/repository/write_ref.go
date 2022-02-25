@@ -25,13 +25,15 @@ func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*
 
 func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
 	repo := s.localrepo(req.GetRepository())
+
 	if string(req.Ref) == "HEAD" {
-		if err := repo.SetDefaultBranch(ctx, git.ReferenceName(req.GetRevision())); err != nil {
+		if err := repo.SetDefaultBranch(ctx, s.txManager, git.ReferenceName(req.GetRevision())); err != nil {
 			return fmt.Errorf("setting default branch: %v", err)
 		}
 
 		return nil
 	}
+
 	return updateRef(ctx, repo, req)
 }
 

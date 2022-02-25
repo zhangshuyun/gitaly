@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -27,7 +28,10 @@ import (
 func TestServer_FetchBundle_success(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.TransactionalSymbolicRefUpdates).Run(t, testServerFetchBundlesuccess)
+}
+
+func testServerFetchBundlesuccess(t *testing.T, ctx context.Context) {
 	cfg, _, repoPath, client := setupRepositoryService(ctx, t)
 
 	tmp := testhelper.TempDir(t)
@@ -71,6 +75,11 @@ func TestServer_FetchBundle_success(t *testing.T) {
 
 func TestServer_FetchBundle_transaction(t *testing.T) {
 	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.TransactionalSymbolicRefUpdates).Run(t, testServerFetchBundleTransaction)
+}
+
+func testServerFetchBundleTransaction(t *testing.T, ctx context.Context) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -100,8 +109,8 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 	bundlePath := filepath.Join(tmp, "test.bundle")
 	gittest.BundleTestRepo(t, cfg, "gitlab-test.git", bundlePath)
-	ctx := testhelper.Context(t)
 
+	hookManager.Reset()
 	_, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
 
@@ -203,6 +212,10 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 type mockHookManager struct {
 	gitalyhook.Manager
 	states []gitalyhook.ReferenceTransactionState
+}
+
+func (m *mockHookManager) Reset() {
+	m.states = make([]gitalyhook.ReferenceTransactionState, 0)
 }
 
 func (m *mockHookManager) ReferenceTransactionHook(_ context.Context, state gitalyhook.ReferenceTransactionState, _ []string, _ io.Reader) error {

@@ -121,6 +121,14 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
 			refNameOK, err := git.CheckRefFormat(ctx, s.gitCmdFactory, referenceName.String())
+			if err != nil {
+				// Should only be reachable if "git
+				// check-ref-format"'s invocation is
+				// incorrect, or if it segfaults on startup
+				// etc.
+				return nil, status.Error(codes.Internal, err.Error())
+			}
+
 			if refNameOK {
 				// The tag might not actually exist,
 				// perhaps update-ref died for some
@@ -134,23 +142,14 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 				}, nil
 			}
 
-			var CheckRefFormatError git.CheckRefFormatError
-			if errors.As(err, &CheckRefFormatError) {
-				// It doesn't make sense either to
-				// tell the user to retry with an
-				// invalid ref name, but ditto on the
-				// Ruby bug-for-bug emulation.
-				return &gitalypb.UserCreateTagResponse{
-					Tag:    nil,
-					Exists: true,
-				}, status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", req.TagName)
-			}
-
-			// Should only be reachable if "git
-			// check-ref-format"'s invocation is
-			// incorrect, or if it segfaults on startup
-			// etc.
-			return nil, status.Error(codes.Internal, err.Error())
+			// It doesn't make sense either to
+			// tell the user to retry with an
+			// invalid ref name, but ditto on the
+			// Ruby bug-for-bug emulation.
+			return &gitalypb.UserCreateTagResponse{
+				Tag:    nil,
+				Exists: true,
+			}, status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", req.TagName)
 		}
 
 		// The Ruby code did not return this, but always an

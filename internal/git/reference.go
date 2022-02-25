@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 )
 
 // InternalRefPrefixes is an array of all reference prefixes which are used internally by GitLab.
@@ -89,13 +91,6 @@ func NewSymbolicReference(name ReferenceName, target string) Reference {
 	}
 }
 
-// CheckRefFormatError is used by CheckRefFormat() below
-type CheckRefFormatError struct{}
-
-func (e CheckRefFormatError) Error() string {
-	return ""
-}
-
 // CheckRefFormat checks whether a fully-qualified refname is well
 // well-formed using git-check-ref-format
 func CheckRefFormat(ctx context.Context, gitCmdFactory CommandFactory, refName string) (bool, error) {
@@ -112,7 +107,11 @@ func CheckRefFormat(ctx context.Context, gitCmdFactory CommandFactory, refName s
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return false, CheckRefFormatError{}
+		if code, ok := command.ExitStatus(err); ok && code == 1 {
+			return false, nil
+		}
+
+		return false, err
 	}
 
 	return true, nil

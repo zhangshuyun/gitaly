@@ -7,10 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/safe"
 )
 
 // HasRevision checks if a revision in the repository exists. This will not
@@ -161,13 +165,55 @@ func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, ne
 }
 
 // SetDefaultBranch sets the repository's HEAD to point to the given reference.
-func (repo *Repo) SetDefaultBranch(ctx context.Context, reference git.ReferenceName) error {
+// It will not verify the reference actually exists.
+func (repo *Repo) SetDefaultBranch(ctx context.Context, txManager transaction.Manager, reference git.ReferenceName) error {
+	if featureflag.TransactionalSymbolicRefUpdates.IsEnabled(ctx) {
+		return repo.setDefaultBranchWithTransaction(ctx, txManager, reference)
+	}
+
 	if err := repo.ExecAndWait(ctx, git.SubCmd{
 		Name: "symbolic-ref",
 		Args: []string{"HEAD", reference.String()},
 	}, git.WithRefTxHook(repo)); err != nil {
 		return err
 	}
+	return nil
+}
+
+// setDefaultBranchWithTransaction sets the repostory's HEAD to point to the given reference
+// using a safe locking file writer and commits the transaction if one exists in the context
+func (repo *Repo) setDefaultBranchWithTransaction(ctx context.Context, txManager transaction.Manager, reference git.ReferenceName) error {
+	valid, err := git.CheckRefFormat(ctx, repo.gitCmdFactory, reference.String())
+	if err != nil {
+		return fmt.Errorf("checking ref format: %w", err)
+	}
+
+	if !valid {
+		return fmt.Errorf("%q is a malformed refname", reference)
+	}
+
+	newHeadContent := []byte(fmt.Sprintf("ref: %s\n", reference.String()))
+
+	repoPath, err := repo.Path()
+	if err != nil {
+		return fmt.Errorf("getting repository path: %w", err)
+	}
+
+	headPath := filepath.Join(repoPath, "HEAD")
+
+	lockingFileWriter, err := safe.NewLockingFileWriter(headPath)
+	if err != nil {
+		return fmt.Errorf("getting file writer: %w", err)
+	}
+
+	if _, err := lockingFileWriter.Write(newHeadContent); err != nil {
+		return fmt.Errorf("writing temporary HEAD: %w", err)
+	}
+
+	if err := transaction.CommitLockedFile(ctx, txManager, lockingFileWriter); err != nil {
+		return fmt.Errorf("committing temporary HEAD: %w", err)
+	}
+
 	return nil
 }
 

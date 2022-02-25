@@ -20,7 +20,6 @@ func TestCheckRefFormat(t *testing.T) {
 		desc    string
 		tagName string
 		ok      bool
-		err     error
 	}{
 		// Just trivial tests here, most of this is tested in
 		// internal/gitaly/service/operations/tags_test.go
@@ -28,30 +27,26 @@ func TestCheckRefFormat(t *testing.T) {
 			desc:    "unqualified name",
 			tagName: "my-name",
 			ok:      false,
-			err:     git.CheckRefFormatError{},
 		},
 		{
 			desc:    "fully-qualified name",
 			tagName: "refs/heads/my-name",
 			ok:      true,
-			err:     nil,
 		},
 		{
 			desc:    "basic tag",
 			tagName: "refs/tags/my-tag",
 			ok:      true,
-			err:     nil,
 		},
 		{
 			desc:    "invalid tag",
 			tagName: "refs/tags/my tag",
 			ok:      false,
-			err:     git.CheckRefFormatError{},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ok, err := git.CheckRefFormat(ctx, gitCmdFactory, tc.tagName)
-			require.Equal(t, tc.err, err)
+			require.NoError(t, err)
 			require.Equal(t, tc.ok, ok)
 		})
 	}
