@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 14.8.2 (2022-02-25)
+
+No changes.
+
 ## 14.8.1 (2022-02-23)
 
 No changes.
@@ -66,6 +70,10 @@ No changes.
 
 - [chore: Add ssh signature test case](gitlab-org/gitaly@4a6b02ba6a4dfb6306426e4553a6b8f0931a3fcf) ([merge request](gitlab-org/gitaly!4277))
 - [client: Expose sidechannel server methods](gitlab-org/gitaly@bf41063be6f60730d5b1f2f1862089e74097ea64) ([merge request](gitlab-org/gitaly!4266))
+
+## 14.7.4 (2022-02-25)
+
+No changes.
 
 ## 14.7.3 (2022-02-15)
 
@@ -139,6 +147,10 @@ No changes.
 - [git: Cache Git version](gitlab-org/gitaly@211cd4adf277d61a46a0d6f1a20ae510c9913864) ([merge request](gitlab-org/gitaly!4236))
 - [UploadPack: use 64KB copy buffer](gitlab-org/gitaly@a03ee7a6c4dedd3269b17623fa4aa5cd8c1584a6) ([merge request](gitlab-org/gitaly!4224))
 - [git: add upload-pack buffer size patch](gitlab-org/gitaly@39b72f695b8752cefe0a48218244951a287c3162) ([merge request](gitlab-org/gitaly!4224))
+
+## 14.6.5 (2022-02-25)
+
+No changes.
 
 ## 14.6.4 (2022-02-03)
 
