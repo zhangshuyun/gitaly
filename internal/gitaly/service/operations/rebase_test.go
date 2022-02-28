@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -16,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -656,10 +654,8 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 
 func TestRebaseOntoRemoteBranch(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testRebaseOntoRemoteBranch)
-}
 
-func testRebaseOntoRemoteBranch(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

@@ -2,7 +2,6 @@ package localrepo_test
 
 import (
 	"bytes"
-	"context"
 	"path/filepath"
 	"testing"
 
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
@@ -24,10 +22,8 @@ import (
 
 func TestRepo_FetchInternal(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testRepoFetchInternal)
-}
 
-func testRepoFetchInternal(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	gitCmdFactory, readGitProtocol := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 

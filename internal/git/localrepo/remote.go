@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -137,24 +136,13 @@ func (repo *Repo) FetchInternal(
 		// shouldn't even be included in the negotiation phase, so they aren't going to
 		// matter in the connectivity check either.
 		git.WithConfig(git.ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"}),
-	}
-
-	if featureflag.FetchInternalWithSidechannel.IsEnabled(ctx) {
-		commandOptions = append(commandOptions, git.WithInternalFetchWithSidechannel(
+		git.WithInternalFetchWithSidechannel(
 			&gitalypb.SSHUploadPackWithSidechannelRequest{
 				Repository:       remoteRepo,
 				GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
 				GitProtocol:      git.ProtocolV2,
 			},
-		))
-	} else {
-		commandOptions = append(commandOptions, git.WithInternalFetch(
-			&gitalypb.SSHUploadPackRequest{
-				Repository:       remoteRepo,
-				GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
-				GitProtocol:      git.ProtocolV2,
-			},
-		))
+		),
 	}
 
 	if opts.DisableTransactions {
