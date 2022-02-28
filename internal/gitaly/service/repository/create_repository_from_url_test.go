@@ -150,12 +150,14 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 	cmd, err := s.cloneFromURLCommand(ctx, url, host, repositoryFullPath, authToken, git.WithDisabledHooks())
 	require.NoError(t, err)
 
+	expectedMirrorFlag := "--mirror"
 	expectedScrubbedURL := "https://192.0.2.1/secretrepo.git"
 	expectedBasicAuthHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte("user:pass!?@")))
 	expectedAuthHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
 	expectedHostHeader := "http.extraHeader=Host: www.example.com"
 
 	args := cmd.Args()
+	require.Contains(t, args, expectedMirrorFlag)
 	require.Contains(t, args, expectedScrubbedURL)
 	require.Contains(t, args, expectedAuthHeader)
 	require.Contains(t, args, expectedHostHeader)

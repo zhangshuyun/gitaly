@@ -29,7 +29,7 @@ func (s *server) cloneFromURLCommand(
 	var config []git.ConfigPair
 
 	cloneFlags := []git.Option{
-		git.Flag{Name: "--bare"},
+		git.Flag{Name: "--mirror"},
 		git.Flag{Name: "--quiet"},
 	}
 
