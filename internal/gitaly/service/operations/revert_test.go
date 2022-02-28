@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -11,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -275,10 +273,7 @@ func TestServer_UserRevert_stableID(t *testing.T) {
 func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testServerUserRevertSuccessfulIntoEmptyRepo)
-}
-
-func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	ctx, cfg, startRepoProto, _, client := setupOperationsService(t, ctx)
 
 	startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)

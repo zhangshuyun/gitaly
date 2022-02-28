@@ -43,7 +43,6 @@ import (
 func TestReplicateRepository(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.FetchInternalWithSidechannel,
 		featureflag.TransactionalSymbolicRefUpdates,
 	).Run(t, testReplicateRepository)
 }
@@ -121,7 +120,6 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 func TestReplicateRepositoryTransactional(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.FetchInternalWithSidechannel,
 		featureflag.TransactionalSymbolicRefUpdates,
 	).Run(t, testReplicateRepositoryTransactional)
 }
@@ -307,7 +305,6 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 func TestReplicateRepository_BadRepository(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.FetchInternalWithSidechannel,
 		featureflag.TransactionalSymbolicRefUpdates,
 	).Run(t, testReplicateRepositoryBadRepository)
 }
@@ -395,7 +392,6 @@ func testReplicateRepositoryBadRepository(t *testing.T, ctx context.Context) {
 func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.FetchInternalWithSidechannel,
 		featureflag.TransactionalSymbolicRefUpdates,
 	).Run(t, testReplicateRepositoryFailedFetchInternalRemote)
 }
@@ -481,7 +477,6 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() gitalySSHParams 
 func TestFetchInternalRemote_successful(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.FetchInternalWithSidechannel,
 		featureflag.TransactionalSymbolicRefUpdates,
 	).Run(t, testFetchInternalRemoteSuccessful)
 }
@@ -573,7 +568,6 @@ func testFetchInternalRemoteSuccessful(t *testing.T, ctx context.Context) {
 func TestFetchInternalRemote_failure(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.FetchInternalWithSidechannel,
 		featureflag.TransactionalSymbolicRefUpdates,
 	).Run(t, testFetchInternalRemoteFailure)
 }

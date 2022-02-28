@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -200,10 +199,7 @@ func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testResolveConflictsWithRemoteRepo)
-}
-
-func testResolveConflictsWithRemoteRepo(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
 	cfg, sourceRepo, sourceRepoPath, client := SetupConflictsService(ctx, t, true, hookManager)
 
@@ -817,10 +813,9 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 }
 
 func TestResolveConflictsQuarantine(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testResolveConflictsQuarantine)
-}
+	t.Parallel()
 
-func testResolveConflictsQuarantine(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg, sourceRepoProto, sourceRepoPath, client := SetupConflictsService(ctx, t, true, nil)
 
 	testcfg.BuildGitalySSH(t, cfg)

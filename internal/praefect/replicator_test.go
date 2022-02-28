@@ -26,7 +26,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
@@ -52,10 +51,9 @@ func TestMain(m *testing.M) {
 
 func TestReplMgr_ProcessBacklog(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testReplMgrProcessBacklog)
-}
 
-func testReplMgrProcessBacklog(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	primaryCfg, testRepoProto, testRepoPath := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	testRepo := localrepo.NewTestRepo(t, primaryCfg, testRepoProto)
 	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
@@ -681,10 +679,9 @@ func getChecksumFunc(ctx context.Context, client gitalypb.RepositoryServiceClien
 
 func TestProcessBacklog_FailedJobs(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testProcessBacklogFailedJobs)
-}
 
-func testProcessBacklogFailedJobs(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
+
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("default"))
 	primaryAddr := testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
@@ -787,10 +784,8 @@ func testProcessBacklogFailedJobs(t *testing.T, ctx context.Context) {
 
 func TestProcessBacklog_Success(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.FetchInternalWithSidechannel).Run(t, testProcessBacklogSuccess)
-}
 
-func testProcessBacklogSuccess(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	ctx, cancel := context.WithCancel(ctx)
 
 	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
