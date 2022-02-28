@@ -56,38 +56,6 @@ module Gitlab
         end
       end
 
-      # Yields the given block (which should return a commit) and
-      # writes it to the ref while also executing hooks for it.
-      # The ref is _always_ overwritten (nothing is taken from its
-      # previous state).
-      #
-      # Returns the generated commit.
-      #
-      # ref - The target ref path we're committing to.
-      # from_ref - The ref we're taking the HEAD commit from.
-      def commit_ref(ref, source_sha, from_ref:)
-        update_autocrlf_option
-
-        target_sha = from_ref.target
-        repository.write_ref(ref, target_sha)
-
-        # Make commit
-        newrev = yield
-
-        unless newrev
-          error = "Failed to create merge commit for source_sha #{source_sha} and" \
-                  " target_sha #{target_sha} at #{ref}"
-
-          raise Gitlab::Git::CommitError.new(error)
-        end
-
-        oldrev = from_ref.target
-
-        update_ref(ref, newrev, oldrev)
-
-        newrev
-      end
-
       private
 
       # Returns [newrev, should_run_after_create, should_run_after_create_branch]
