@@ -154,6 +154,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :url, :string, 2
       optional :http_host, :string, 3
+      optional :http_authorization_header, :string, 4
     end
     add_message "gitaly.CreateRepositoryFromURLResponse" do
     end

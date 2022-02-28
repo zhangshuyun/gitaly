@@ -18,7 +18,7 @@ import (
 
 func (s *server) cloneFromURLCommand(
 	ctx context.Context,
-	repoURL, repoHost, repositoryFullPath string,
+	repoURL, repoHost, repositoryFullPath, authorizationToken string,
 	opts ...git.CmdOpt,
 ) (*command.Command, error) {
 	u, err := url.Parse(repoURL)
@@ -46,6 +46,11 @@ func (s *server) cloneFromURLCommand(
 		u.User = nil
 		authHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte(creds)))
 		config = append(config, git.ConfigPair{Key: "http.extraHeader", Value: authHeader})
+	} else {
+		if len(authorizationToken) > 0 {
+			authHeader := fmt.Sprintf("Authorization: %s", authorizationToken)
+			config = append(config, git.ConfigPair{Key: "http.extraHeader", Value: authHeader})
+		}
 	}
 
 	if repoHost != "" {
@@ -86,6 +91,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 			req.GetUrl(),
 			req.GetHttpHost(),
 			targetPath,
+			req.GetHttpAuthorizationHeader(),
 			git.WithStderr(&stderr),
 			git.WithDisabledHooks(),
 		)
