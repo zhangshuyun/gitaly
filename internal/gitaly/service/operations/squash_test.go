@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -554,8 +556,11 @@ func TestUserSquash_ancestry(t *testing.T) {
 }
 
 func TestUserSquash_gitError(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.UserSquashImprovedErrorHandling).Run(t, testUserSquashGitError)
+}
+
+func testUserSquashGitError(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -575,9 +580,31 @@ func TestUserSquash_gitError(t *testing.T) {
 				StartSha:      "doesntexisting",
 				EndSha:        endSha,
 			},
-			expectedResponse: &gitalypb.UserSquashResponse{
-				GitError: "fatal: ambiguous argument 'doesntexisting...54cec5282aa9f21856362fe321c800c236a61615': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n",
-			},
+			expectedErr: func() error {
+				if featureflag.UserSquashImprovedErrorHandling.IsEnabled(ctx) {
+					return errWithDetails(t,
+						helper.ErrInvalidArgumentf("resolving start revision: reference not found"),
+						&gitalypb.UserSquashError{
+							Error: &gitalypb.UserSquashError_ResolveRevision{
+								ResolveRevision: &gitalypb.ResolveRevisionError{
+									Revision: []byte("doesntexisting"),
+								},
+							},
+						},
+					)
+				}
+
+				return nil
+			}(),
+			expectedResponse: func() *gitalypb.UserSquashResponse {
+				if featureflag.UserSquashImprovedErrorHandling.IsEnabled(ctx) {
+					return nil
+				}
+
+				return &gitalypb.UserSquashResponse{
+					GitError: "fatal: ambiguous argument 'doesntexisting...54cec5282aa9f21856362fe321c800c236a61615': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n",
+				}
+			}(),
 		},
 		{
 			desc: "not existing end SHA",
@@ -589,9 +616,31 @@ func TestUserSquash_gitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        "doesntexisting",
 			},
-			expectedResponse: &gitalypb.UserSquashResponse{
-				GitError: "fatal: ambiguous argument 'b83d6e391c22777fca1ed3012fce84f633d7fed0...doesntexisting': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n",
-			},
+			expectedErr: func() error {
+				if featureflag.UserSquashImprovedErrorHandling.IsEnabled(ctx) {
+					return errWithDetails(t,
+						helper.ErrInvalidArgumentf("resolving end revision: reference not found"),
+						&gitalypb.UserSquashError{
+							Error: &gitalypb.UserSquashError_ResolveRevision{
+								ResolveRevision: &gitalypb.ResolveRevisionError{
+									Revision: []byte("doesntexisting"),
+								},
+							},
+						},
+					)
+				}
+
+				return nil
+			}(),
+			expectedResponse: func() *gitalypb.UserSquashResponse {
+				if featureflag.UserSquashImprovedErrorHandling.IsEnabled(ctx) {
+					return nil
+				}
+
+				return &gitalypb.UserSquashResponse{
+					GitError: "fatal: ambiguous argument 'b83d6e391c22777fca1ed3012fce84f633d7fed0...doesntexisting': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n",
+				}
+			}(),
 		},
 		{
 			desc: "user has no name set",
