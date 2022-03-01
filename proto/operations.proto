@@ -116,7 +116,11 @@ service OperationService {
     };
   }
 
-  // UserSquash squashes a range of commits into a single commit.
+  // UserSquash squashes a range of commits into a single commit. If
+  // successful, it returns the object ID of the newly created squash commit.
+  // On error, it returns a gRPC error. Some specific errors will have an
+  // embedded UserSquashError such that clients can deduce what exactly has
+  // failed.
   rpc UserSquash(UserSquashRequest) returns (UserSquashResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -643,6 +647,19 @@ message UserSquashResponse {
   reserved 2;
   reserved "pre_receive_error";
   string git_error = 3;
+}
+
+// UserSquashError is an error that may be returned when the UserSquash RPC
+// fails.
+message UserSquashError {
+  oneof error {
+    // ResolveRevision is returned in case resolving either the start or end
+    // revision has failed.
+    ResolveRevisionError resolve_revision = 1;
+    // RebaseConflict is returned in case rebasing commits on top of the start
+    // commit fails with a merge conflict.
+    MergeConflictError rebase_conflict = 2;
+  }
 }
 
 message UserApplyPatchRequest {
