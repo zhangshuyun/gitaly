@@ -3,6 +3,7 @@ package localrepo
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -597,6 +598,29 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 		assert.Regexp(t, "Unable to create .+\\/HEAD\\.lock': File exists.", stderr.String())
 		ch <- struct{}{}
 		<-doneCh
+	})
+
+	t.Run("failing vote unlocks symref", func(t *testing.T) {
+		ctx, err := txinfo.InjectTransaction(
+			peer.NewContext(ctx, &peer.Peer{}),
+			1,
+			"node",
+			true,
+		)
+		require.NoError(t, err)
+
+		_, repo, repoPath := setupRepo(t)
+
+		failingTxManager := &transaction.MockManager{
+			VoteFn: func(context.Context, txinfo.Transaction, voting.Vote, voting.Phase) error {
+				return errors.New("injected error")
+			},
+		}
+
+		err = repo.SetDefaultBranch(ctx, failingTxManager, "refs/heads/branch")
+		require.Error(t, err)
+		require.Equal(t, "committing temporary HEAD: voting on locked file: preimage vote: injected error", err.Error())
+		require.NoFileExists(t, filepath.Join(repoPath, "HEAD.lock"))
 	})
 }
 
