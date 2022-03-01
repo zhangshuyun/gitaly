@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/alternates"
@@ -42,19 +41,6 @@ var globalOptions = []GlobalOption{
 	// mechanism to replace malicious commits with seemingly benign ones. We thus globally
 	// disable this mechanism.
 	ConfigPair{Key: "core.useReplaceRefs", Value: "false"},
-}
-
-type executionEnvironments struct {
-	externalGit ExecutionEnvironment
-	bundledGit  ExecutionEnvironment
-}
-
-// ExecutionEnvironment describes the environment required to execute a Git command
-type ExecutionEnvironment struct {
-	// BinaryPath is the path to the Git binary.
-	BinaryPath string
-	// EnvironmentVariables are variables which must be set when running the Git binary.
-	EnvironmentVariables []string
 }
 
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
@@ -115,7 +101,7 @@ type cachedGitVersion struct {
 type ExecCommandFactory struct {
 	locator               storage.Locator
 	cfg                   config.Cfg
-	execEnvs              executionEnvironments
+	execEnvs              []ExecutionEnvironment
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
 	hookDirs              hookDirectories
@@ -178,125 +164,38 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 
 // setupGitExecutionEnvironments assembles a Git execution environment that can be used to run Git
 // commands. It warns if no path was specified in the configuration.
-func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactoryConfig) (executionEnvironments, func(), error) {
+func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactoryConfig) ([]ExecutionEnvironment, func(), error) {
 	if factoryCfg.gitBinaryPath != "" {
-		return executionEnvironments{
-			externalGit: ExecutionEnvironment{
-				BinaryPath: factoryCfg.gitBinaryPath,
-			},
+		return []ExecutionEnvironment{
+			{BinaryPath: factoryCfg.gitBinaryPath},
 		}, func() {}, nil
 	}
 
-	binaryPath := cfg.Git.BinPath
-	if override := os.Getenv("GITALY_TESTING_GIT_BINARY"); binaryPath == "" && override != "" {
-		binaryPath = override
-	}
-
-	useBundledBinaries := cfg.Git.UseBundledBinaries
-	if bundledGitPath := os.Getenv("GITALY_TESTING_BUNDLED_GIT_PATH"); bundledGitPath != "" {
-		if cfg.BinDir == "" {
-			return executionEnvironments{}, nil, errors.New("cannot use bundled binaries without bin path being set")
-		}
-
-		// We need to symlink pre-built Git binaries into Gitaly's binary directory.
-		// Normally they would of course already exist there, but in tests we create a new
-		// binary directory for each server and thus need to populate it first.
-		for _, binary := range []string{"gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"} {
-			bundledGitBinary := filepath.Join(bundledGitPath, binary)
-			if _, err := os.Stat(bundledGitBinary); err != nil {
-				return executionEnvironments{}, nil, fmt.Errorf("statting %q: %w", binary, err)
-			}
-
-			if err := os.Symlink(bundledGitBinary, filepath.Join(cfg.BinDir, binary)); err != nil {
-				// While Gitaly's Go tests use a temporary binary directory, Ruby
-				// rspecs set up the binary directory to point to our build
-				// directory. They thus already contain the Git binaries and don't
-				// need symlinking.
-				if errors.Is(err, os.ErrExist) {
-					continue
-				}
-				return executionEnvironments{}, nil, fmt.Errorf("symlinking bundled %q: %w", binary, err)
-			}
-		}
-
-		useBundledBinaries = true
-	}
-
-	var execEnvs executionEnvironments
-	var cleanups []func()
-
-	if binaryPath != "" {
-		execEnvs.externalGit = ExecutionEnvironment{
-			BinaryPath: binaryPath,
-		}
-	}
-
-	if useBundledBinaries {
-		// In order to support having a single Git binary only as compared to a complete Git
-		// installation, we create our own GIT_EXEC_PATH which contains symlinks to the Git
-		// binary for executables which Git expects to be present.
-		gitExecPath, err := os.MkdirTemp("", "gitaly-git-exec-path-*")
+	var execEnvs []ExecutionEnvironment
+	for _, constructor := range ExecutionEnvironmentConstructors {
+		execEnv, err := constructor.Construct(cfg)
 		if err != nil {
-			return executionEnvironments{}, nil, fmt.Errorf("creating Git exec path: %w", err)
-		}
-
-		for executable, target := range map[string]string{
-			"git":                "gitaly-git",
-			"git-receive-pack":   "gitaly-git",
-			"git-upload-pack":    "gitaly-git",
-			"git-upload-archive": "gitaly-git",
-			"git-http-backend":   "gitaly-git-http-backend",
-			"git-remote-http":    "gitaly-git-remote-http",
-			"git-remote-https":   "gitaly-git-remote-http",
-			"git-remote-ftp":     "gitaly-git-remote-http",
-			"git-remote-ftps":    "gitaly-git-remote-http",
-		} {
-			if err := os.Symlink(
-				filepath.Join(cfg.BinDir, target),
-				filepath.Join(gitExecPath, executable),
-			); err != nil {
-				return executionEnvironments{}, nil, fmt.Errorf("linking Git executable %q: %w", executable, err)
+			// In case the environment has not been configured by the user we simply
+			// skip it.
+			if errors.Is(err, ErrNotConfigured) {
+				continue
 			}
+
+			// But if it has been configured and we fail to set it up then it signifies
+			// a real error.
+			return nil, nil, fmt.Errorf("constructing Git environment: %w", err)
 		}
 
-		cleanups = append(cleanups, func() {
-			if err := os.RemoveAll(gitExecPath); err != nil {
-				logrus.WithError(err).Error("cleanup of Git execution environment failed")
-			}
-		})
-
-		execEnvs.bundledGit = ExecutionEnvironment{
-			BinaryPath: filepath.Join(gitExecPath, "git"),
-			EnvironmentVariables: []string{
-				"GIT_EXEC_PATH=" + gitExecPath,
-			},
-		}
+		execEnvs = append(execEnvs, execEnv)
 	}
 
-	// If neither an external Git distribution nor a bundled Git was configured we need to
-	// fall back to resolve the Git executable via PATH. We explicitly don't want to do this
-	// in case either one of those has been configured though: we have no clue where system Git
-	// comes from and what its version is, so it's the worst of all choices.
-	if execEnvs.externalGit.BinaryPath == "" && execEnvs.bundledGit.BinaryPath == "" {
-		resolvedPath, err := exec.LookPath("git")
-		if err != nil {
-			if errors.Is(err, exec.ErrNotFound) {
-				return executionEnvironments{}, nil, fmt.Errorf(`"git" executable not found, set path to it in the configuration file or add it to the PATH`)
-			}
-		}
-
-		logrus.WithFields(logrus.Fields{
-			"resolvedPath": resolvedPath,
-		}).Warn("git path not configured. Using default path resolution")
-
-		execEnvs.externalGit = ExecutionEnvironment{
-			BinaryPath: resolvedPath,
-		}
+	if len(execEnvs) == 0 {
+		return nil, nil, fmt.Errorf("could not set up any Git execution environments")
 	}
 
 	return execEnvs, func() {
-		for i := len(cleanups) - 1; i >= 0; i-- {
-			cleanups[i]()
+		for _, execEnv := range execEnvs {
+			execEnv.Cleanup()
 		}
 	}, nil
 }
@@ -335,21 +234,18 @@ func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd
 
 // GetExecutionEnvironment returns parameters required to execute Git commands.
 func (cf *ExecCommandFactory) GetExecutionEnvironment(ctx context.Context) ExecutionEnvironment {
-	switch {
-	case cf.execEnvs.bundledGit.BinaryPath != "" && cf.execEnvs.externalGit.BinaryPath != "":
-		if featureflag.UseBundledGit.IsEnabled(ctx) {
-			return cf.execEnvs.bundledGit
+	// We first go through all execution environments and check whether any of them is enabled
+	// in the current context, which most importantly will check their respective feature flags.
+	for _, execEnv := range cf.execEnvs {
+		if execEnv.IsEnabled(ctx) {
+			return execEnv
 		}
-		return cf.execEnvs.externalGit
-	case cf.execEnvs.bundledGit.BinaryPath != "":
-		return cf.execEnvs.bundledGit
-	case cf.execEnvs.externalGit.BinaryPath != "":
-		return cf.execEnvs.externalGit
-	default:
-		// This shouldn't ever happen given that `setupGitExecutionEnvironments()` returns
-		// an error in case no environment was found.
-		panic("no Git execution environment defined")
 	}
+
+	// If none is enabled though, we simply use the first execution environment, which is also
+	// the one with highest priority. This can for example happen in case we only were able to
+	// construct a single execution environment that is currently feature flagged.
+	return cf.execEnvs[0]
 }
 
 // HooksPath returns the path where Gitaly's Git hooks reside.
