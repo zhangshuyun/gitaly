@@ -649,6 +649,17 @@ message UserSquashResponse {
   string git_error = 3;
 }
 
+message UserRebaseConfirmableError {
+  oneof error {
+    // ResolveRevision is returned in case resolving either the start or end
+    // revision has failed.
+    ResolveRevisionError resolve_revision = 1;
+    // RebaseConflict is returned in case rebasing commits on top of the start
+    // commit fails with a merge conflict.
+    MergeConflictError rebase_conflict = 2;
+  }
+}
+
 // UserSquashError is an error that may be returned when the UserSquash RPC
 // fails.
 message UserSquashError {
