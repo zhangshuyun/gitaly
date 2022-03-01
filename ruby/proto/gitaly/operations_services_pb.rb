@@ -63,7 +63,11 @@ module Gitaly
       rpc :UserRebaseConfirmable, stream(::Gitaly::UserRebaseConfirmableRequest), stream(::Gitaly::UserRebaseConfirmableResponse)
       # UserRevert tries to perform a revert of a given commit onto a branch.
       rpc :UserRevert, ::Gitaly::UserRevertRequest, ::Gitaly::UserRevertResponse
-      # UserSquash squashes a range of commits into a single commit.
+      # UserSquash squashes a range of commits into a single commit. If
+      # successful, it returns the object ID of the newly created squash commit.
+      # On error, it returns a gRPC error. Some specific errors will have an
+      # embedded UserSquashError such that clients can deduce what exactly has
+      # failed.
       rpc :UserSquash, ::Gitaly::UserSquashRequest, ::Gitaly::UserSquashResponse
       # UserApplyPatch applies patches to a given branch.
       rpc :UserApplyPatch, stream(::Gitaly::UserApplyPatchRequest), ::Gitaly::UserApplyPatchResponse

@@ -17,6 +17,15 @@ message AccessCheckError {
   bytes changes = 4;
 }
 
+// MergeConflictError is an error returned in the case when merging two commits
+// fails due to a merge conflict.
+message MergeConflictError {
+  // ConflictingFiles is the set of files which have been conflicting. If this
+  // field is empty, then there has still been a merge conflict, but it wasn't
+  // able to determine which files have been conflicting.
+  repeated bytes conflicting_files = 1;
+}
+
 // ReferenceUpdateError is an error returned when updating a reference has
 // failed.
 message ReferenceUpdateError {
@@ -26,4 +35,11 @@ message ReferenceUpdateError {
   string old_oid = 2;
   // NewOid is the object ID the reference should have pointed to after the update.
   string new_oid = 3;
+}
+
+// ResolveRevisionError is an error returned when resolving a specific revision
+// has failed.
+message ResolveRevisionError {
+  // Revision is the name of the revision that was tried to be resolved.
+  bytes revision = 1;
 }

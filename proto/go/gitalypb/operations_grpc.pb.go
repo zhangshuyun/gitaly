@@ -63,7 +63,11 @@ type OperationServiceClient interface {
 	UserRebaseConfirmable(ctx context.Context, opts ...grpc.CallOption) (OperationService_UserRebaseConfirmableClient, error)
 	// UserRevert tries to perform a revert of a given commit onto a branch.
 	UserRevert(ctx context.Context, in *UserRevertRequest, opts ...grpc.CallOption) (*UserRevertResponse, error)
-	// UserSquash squashes a range of commits into a single commit.
+	// UserSquash squashes a range of commits into a single commit. If
+	// successful, it returns the object ID of the newly created squash commit.
+	// On error, it returns a gRPC error. Some specific errors will have an
+	// embedded UserSquashError such that clients can deduce what exactly has
+	// failed.
 	UserSquash(ctx context.Context, in *UserSquashRequest, opts ...grpc.CallOption) (*UserSquashResponse, error)
 	// UserApplyPatch applies patches to a given branch.
 	UserApplyPatch(ctx context.Context, opts ...grpc.CallOption) (OperationService_UserApplyPatchClient, error)
@@ -357,7 +361,11 @@ type OperationServiceServer interface {
 	UserRebaseConfirmable(OperationService_UserRebaseConfirmableServer) error
 	// UserRevert tries to perform a revert of a given commit onto a branch.
 	UserRevert(context.Context, *UserRevertRequest) (*UserRevertResponse, error)
-	// UserSquash squashes a range of commits into a single commit.
+	// UserSquash squashes a range of commits into a single commit. If
+	// successful, it returns the object ID of the newly created squash commit.
+	// On error, it returns a gRPC error. Some specific errors will have an
+	// embedded UserSquashError such that clients can deduce what exactly has
+	// failed.
 	UserSquash(context.Context, *UserSquashRequest) (*UserSquashResponse, error)
 	// UserApplyPatch applies patches to a given branch.
 	UserApplyPatch(OperationService_UserApplyPatchServer) error

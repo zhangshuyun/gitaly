@@ -19,7 +19,8 @@ const (
 	ambiguousArgumentFmt  = "fatal: ambiguous argument '%s...%s': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n"
 )
 
-//nolint: revive,stylecheck // This is unintentionally missing documentation.
+// UserSquash collapses a range of commits identified via a start and end revision into a single
+// commit whose single parent is the start revision.
 func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest) (*gitalypb.UserSquashResponse, error) {
 	if err := validateUserSquashRequest(req); err != nil {
 		return nil, helper.ErrInvalidArgumentf("UserSquash: %v", err)

@@ -11,15 +11,23 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :user_id, :string, 3
       optional :changes, :bytes, 4
     end
+    add_message "gitaly.MergeConflictError" do
+      repeated :conflicting_files, :bytes, 1
+    end
     add_message "gitaly.ReferenceUpdateError" do
       optional :reference_name, :bytes, 1
       optional :old_oid, :string, 2
       optional :new_oid, :string, 3
+    end
+    add_message "gitaly.ResolveRevisionError" do
+      optional :revision, :bytes, 1
     end
   end
 end
 
 module Gitaly
   AccessCheckError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.AccessCheckError").msgclass
+  MergeConflictError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.MergeConflictError").msgclass
   ReferenceUpdateError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ReferenceUpdateError").msgclass
+  ResolveRevisionError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ResolveRevisionError").msgclass
 end
