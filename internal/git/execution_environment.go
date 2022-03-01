@@ -182,16 +182,18 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 	}()
 
 	for executable, target := range map[string]string{
-		"git":                "gitaly-git" + c.Suffix,
-		"git-receive-pack":   "gitaly-git" + c.Suffix,
-		"git-upload-pack":    "gitaly-git" + c.Suffix,
-		"git-upload-archive": "gitaly-git" + c.Suffix,
-		"git-http-backend":   "gitaly-git-http-backend" + c.Suffix,
-		"git-remote-http":    "gitaly-git-remote-http" + c.Suffix,
-		"git-remote-https":   "gitaly-git-remote-http" + c.Suffix,
-		"git-remote-ftp":     "gitaly-git-remote-http" + c.Suffix,
-		"git-remote-ftps":    "gitaly-git-remote-http" + c.Suffix,
+		"git":                "gitaly-git",
+		"git-receive-pack":   "gitaly-git",
+		"git-upload-pack":    "gitaly-git",
+		"git-upload-archive": "gitaly-git",
+		"git-http-backend":   "gitaly-git-http-backend",
+		"git-remote-http":    "gitaly-git-remote-http",
+		"git-remote-https":   "gitaly-git-remote-http",
+		"git-remote-ftp":     "gitaly-git-remote-http",
+		"git-remote-ftps":    "gitaly-git-remote-http",
 	} {
+		target := target + c.Suffix
+
 		if err := os.Symlink(
 			filepath.Join(cfg.BinDir, target),
 			filepath.Join(gitExecPath, executable),
