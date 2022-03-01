@@ -148,6 +148,10 @@ No changes.
 - [UploadPack: use 64KB copy buffer](gitlab-org/gitaly@a03ee7a6c4dedd3269b17623fa4aa5cd8c1584a6) ([merge request](gitlab-org/gitaly!4224))
 - [git: add upload-pack buffer size patch](gitlab-org/gitaly@39b72f695b8752cefe0a48218244951a287c3162) ([merge request](gitlab-org/gitaly!4224))
 
+## 14.6.6 (2022-03-01)
+
+No changes.
+
 ## 14.6.5 (2022-02-25)
 
 No changes.
