@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -197,9 +198,14 @@ func (c BundledGitEnvironmentConstructor) Construct(cfg config.Cfg) (_ Execution
 		"git-remote-ftps":    "gitaly-git-remote-http",
 	} {
 		target := target + c.Suffix
+		targetPath := filepath.Join(cfg.BinDir, target)
+
+		if err := unix.Access(targetPath, unix.X_OK); err != nil {
+			return ExecutionEnvironment{}, fmt.Errorf("checking bundled Git binary %q: %w", target, err)
+		}
 
 		if err := os.Symlink(
-			filepath.Join(cfg.BinDir, target),
+			targetPath,
 			filepath.Join(gitExecPath, executable),
 		); err != nil {
 			return ExecutionEnvironment{}, fmt.Errorf("linking Git executable %q: %w", executable, err)

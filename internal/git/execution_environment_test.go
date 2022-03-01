@@ -91,17 +91,14 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 	})
 
 	t.Run("incomplete binary directory succeeds", func(t *testing.T) {
-		execEnv, err := constructor.Construct(config.Cfg{
+		_, err := constructor.Construct(config.Cfg{
 			BinDir: seedDirWithExecutables(t, "gitaly-git", "gitaly-git-remote-http"),
 			Git: config.Git{
 				UseBundledBinaries: true,
 			},
 		})
-
-		// It is a bug that this succeeds, we really should check that all expected binaries
-		// exist. We thus don't bother to check the generated execution environment.
-		require.NoError(t, err)
-		defer execEnv.Cleanup()
+		require.Error(t, err)
+		require.Equal(t, "checking bundled Git binary \"gitaly-git-http-backend\": no such file or directory", err.Error())
 	})
 
 	t.Run("complete binary directory succeeds", func(t *testing.T) {
