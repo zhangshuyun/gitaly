@@ -225,6 +225,27 @@ func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, client gita
 			},
 			expectedContent: mockPageContent,
 		},
+		{
+			desc: "when returning the content is skipped",
+			request: &gitalypb.WikiFindPageRequest{
+				Repository:  wikiRepo,
+				Title:       []byte(page6Name),
+				SkipContent: true,
+			},
+			expectedPage: &gitalypb.WikiPage{
+				Version: &gitalypb.WikiPageVersion{
+					Commit: latestCommit,
+					Format: "markdown",
+				},
+				Title:      []byte("Tilde in directory"),
+				Format:     "markdown",
+				UrlPath:    "~/Tilde-in-directory",
+				Path:       []byte("~/Tilde-in-directory.md"),
+				Name:       []byte("Tilde in directory"),
+				Historical: false,
+			},
+			expectedContent: nil,
+		},
 	}
 
 	for _, testCase := range testCases {

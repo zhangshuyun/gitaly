@@ -54,6 +54,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :title, :bytes, 2
       optional :revision, :bytes, 3
       optional :directory, :bytes, 4
+      optional :skip_content, :bool, 5
     end
     add_message "gitaly.WikiFindPageResponse" do
       optional :page, :message, 1, "gitaly.WikiPage"

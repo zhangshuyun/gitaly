@@ -101,6 +101,8 @@ message WikiFindPageRequest {
   bytes title = 2;
   bytes revision = 3;
   bytes directory = 4;
+  // prevents the content from being sent over the response
+  bool skip_content = 5;
 }
 
 // WikiFindPageResponse is a stream because we need multiple WikiPage
