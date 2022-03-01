@@ -46,11 +46,13 @@ module GitalyServer
       Enumerator.new do |y|
         y.yield Gitaly::WikiFindPageResponse.new(page: build_gitaly_wiki_page(page))
 
-        io = StringIO.new(page.text_data)
-        while chunk = io.read(Gitlab.config.git.write_buffer_size)
-          gitaly_wiki_page = Gitaly::WikiPage.new(raw_data: chunk)
+        unless request.skip_content
+          io = StringIO.new(page.text_data)
+          while chunk = io.read(Gitlab.config.git.write_buffer_size)
+            gitaly_wiki_page = Gitaly::WikiPage.new(raw_data: chunk)
 
-          y.yield Gitaly::WikiFindPageResponse.new(page: gitaly_wiki_page)
+            y.yield Gitaly::WikiFindPageResponse.new(page: gitaly_wiki_page)
+          end
         end
       end
     end
