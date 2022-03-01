@@ -620,9 +620,7 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 		err = repo.SetDefaultBranch(ctx, failingTxManager, "refs/heads/branch")
 		require.Error(t, err)
 		require.Equal(t, "committing temporary HEAD: voting on locked file: preimage vote: injected error", err.Error())
-
-		// This is a bug: the lockfile does not get cleaned up correctly.
-		require.FileExists(t, filepath.Join(repoPath, "HEAD.lock"))
+		require.NoFileExists(t, filepath.Join(repoPath, "HEAD.lock"))
 	})
 }
 
