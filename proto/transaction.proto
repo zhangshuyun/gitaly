@@ -8,21 +8,11 @@ import "lint.proto";
 import "shared.proto";
 
 service RefTransaction {
+  option (intercepted) = true;
 
-  rpc VoteTransaction (VoteTransactionRequest) returns (VoteTransactionResponse) {
-    option (op_type) = {
-      op:          MUTATOR
-      scope_level: REPOSITORY
-    };
-  }
+  rpc VoteTransaction (VoteTransactionRequest) returns (VoteTransactionResponse);
 
-  rpc StopTransaction (StopTransactionRequest) returns (StopTransactionResponse) {
-    option (op_type) = {
-      op:          MUTATOR
-      scope_level: REPOSITORY
-    };
-  }
-
+  rpc StopTransaction (StopTransactionRequest) returns (StopTransactionResponse);
 }
 
 message VoteTransactionRequest {
