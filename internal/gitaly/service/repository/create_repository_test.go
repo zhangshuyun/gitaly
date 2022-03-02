@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -70,6 +71,57 @@ func TestCreateRepository_successful(t *testing.T) {
 
 	symRef := testhelper.MustReadFile(t, path.Join(repoDir, "HEAD"))
 	require.Equal(t, symRef, []byte(fmt.Sprintf("ref: %s\n", git.DefaultRef)))
+}
+
+func TestCreateRepository_withDefaultBranch(t *testing.T) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	ctx := testhelper.Context(t)
+
+	testCases := []struct {
+		name              string
+		defaultBranch     string
+		expected          string
+		expectedErrString string
+	}{
+		{
+			name:          "valid default branch",
+			defaultBranch: "develop",
+			expected:      "refs/heads/develop",
+		},
+		{
+			name:          "empty branch name",
+			defaultBranch: "",
+			expected:      "refs/heads/main",
+		},
+		{
+			name:              "invalid branch name",
+			defaultBranch:     "./.lock",
+			expected:          "refs/heads/main",
+			expectedErrString: `creating repository: exit status 128, stderr: "fatal: invalid initial branch name: './.lock'\n"`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: gittest.NewRepositoryName(t, true)}
+
+			req := &gitalypb.CreateRepositoryRequest{Repository: repo, DefaultBranch: []byte(tc.defaultBranch)}
+			_, err := client.CreateRepository(ctx, req)
+			if tc.expectedErrString != "" {
+				require.Contains(t, err.Error(), tc.expectedErrString)
+			} else {
+				require.NoError(t, err)
+				repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo))
+				symRef := text.ChompBytes(gittest.Exec(
+					t,
+					cfg,
+					"-C", repoPath,
+					"symbolic-ref", "HEAD"))
+				require.Equal(t, tc.expected, symRef)
+			}
+		})
+	}
 }
 
 func TestCreateRepository_failure(t *testing.T) {

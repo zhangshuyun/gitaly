@@ -8,11 +8,15 @@ import (
 )
 
 func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepositoryRequest) (*gitalypb.CreateRepositoryResponse, error) {
-	if err := s.createRepository(ctx, req.GetRepository(), func(repo *gitalypb.Repository) error {
-		// We do not want to seed the repository with any contents, so we just
-		// return directly.
-		return nil
-	}); err != nil {
+	if err := s.createRepository(
+		ctx,
+		req.GetRepository(),
+		func(repo *gitalypb.Repository) error {
+			// We do not want to seed the repository with any contents, so we just
+			// return directly.
+			return nil
+		},
+		withBranchName(string(req.GetDefaultBranch()))); err != nil {
 		return nil, helper.ErrInternalf("creating repository: %w", err)
 	}
 

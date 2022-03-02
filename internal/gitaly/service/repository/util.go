@@ -31,6 +31,18 @@ func (s *server) removeOriginInRepo(ctx context.Context, repository *gitalypb.Re
 	return nil
 }
 
+type createRepositoryOption func(options *[]git.Option)
+
+func withBranchName(branch string) createRepositoryOption {
+	return func(options *[]git.Option) {
+		if branch == "" {
+			return
+		}
+
+		*options = append(*options, git.ValueFlag{Name: "--initial-branch", Value: branch})
+	}
+}
+
 // createRepository will create a new repository in a race-free way with proper transactional
 // semantics. The repository will only be created if it doesn't yet exist and if nodes which take
 // part in the transaction reach quorum. Otherwise, the target path of the new repository will not
@@ -39,6 +51,7 @@ func (s *server) createRepository(
 	ctx context.Context,
 	repository *gitalypb.Repository,
 	seedRepository func(repository *gitalypb.Repository) error,
+	options ...createRepositoryOption,
 ) error {
 	targetPath, err := s.locator.GetPath(repository)
 	if err != nil {
@@ -70,13 +83,19 @@ func (s *server) createRepository(
 	// Note that we do not create the repository directly in its target location, but
 	// instead create it in a temporary directory, first. This is done such that we can
 	// guarantee atomicity and roll back the change easily in case an error happens.
+
+	gitOptions := make([]git.Option, 0, len(options))
+	for _, optionFn := range options {
+		optionFn(&gitOptions)
+	}
+
 	stderr := &bytes.Buffer{}
 	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
 		Name: "init",
-		Flags: []git.Option{
+		Flags: append([]git.Option{
 			git.Flag{Name: "--bare"},
 			git.Flag{Name: "--quiet"},
-		},
+		}, gitOptions...),
 		Args: []string{newRepoDir.Path()},
 	}, git.WithStderr(stderr))
 	if err != nil {

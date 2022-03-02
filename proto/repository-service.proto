@@ -408,6 +408,10 @@ message FetchRemoteResponse {
 
 message CreateRepositoryRequest {
   Repository repository = 1 [(target_repository)=true];
+  // Provide a branch name to set as the default branch of a newly created
+  // repository. Note, this will be treated as the branch name and not a
+  // fully qualified reference.
+  bytes default_branch = 2;
 }
 
 message CreateRepositoryResponse {}
