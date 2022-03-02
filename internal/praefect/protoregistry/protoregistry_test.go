@@ -179,6 +179,10 @@ func TestNewProtoRegistry_IsInterceptedMethod(t *testing.T) {
 			"DatalossCheck",
 			"SetAuthoritativeStorage",
 		},
+		"RefTransaction": {
+			"VoteTransaction",
+			"StopTransaction",
+		},
 	} {
 		t.Run(service, func(t *testing.T) {
 			for _, method := range methods {
