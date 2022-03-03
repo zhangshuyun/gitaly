@@ -448,6 +448,154 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 	}
 }
 
+func TestPerRepositoryRouter_RouteRepositoryMaintenance(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t)
+
+	configuredNodes := map[string][]string{
+		"virtual-storage-1": {"primary", "secondary-1", "secondary-2"},
+	}
+
+	for _, tc := range []struct {
+		desc           string
+		virtualStorage string
+		healthyNodes   StaticHealthChecker
+		assignedNodes  StaticRepositoryAssignments
+		expectedNodes  []string
+		expectedErr    error
+	}{
+		{
+			desc:           "unknown virtual storage",
+			virtualStorage: "unknown",
+			expectedErr:    nodes.ErrVirtualStorageNotExist,
+		},
+		{
+			desc:           "all nodes unhealthy",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes:   StaticHealthChecker{},
+			expectedErr:    ErrNoHealthyNodes,
+		},
+		{
+			desc:           "unhealthy primary",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes:   StaticHealthChecker{"virtual-storage-1": {"secondary-1", "secondary-2"}},
+			expectedNodes:  []string{"secondary-1", "secondary-2"},
+		},
+		{
+			desc:           "unhealthy secondaries",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes:   StaticHealthChecker{"virtual-storage-1": {"primary"}},
+			expectedNodes:  []string{"primary"},
+		},
+		{
+			desc:           "all nodes healthy",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes:   StaticHealthChecker(configuredNodes),
+			expectedNodes:  []string{"primary", "secondary-1", "secondary-2"},
+		},
+		{
+			desc:           "unassigned primary is ignored",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes:   StaticHealthChecker(configuredNodes),
+			assignedNodes:  StaticRepositoryAssignments{"virtual-storage-1": {"repository": {"secondary-1", "secondary-2"}}},
+			expectedNodes:  []string{"secondary-1", "secondary-2"},
+		},
+		{
+			desc:           "unassigned secondary is ignored",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes:   StaticHealthChecker(configuredNodes),
+			assignedNodes:  StaticRepositoryAssignments{"virtual-storage-1": {"repository": {"primary", "secondary-1"}}},
+			expectedNodes:  []string{"primary", "secondary-1"},
+		},
+		{
+			desc:           "no assigned nodes",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes:   StaticHealthChecker(configuredNodes),
+			assignedNodes:  StaticRepositoryAssignments{"virtual-storage-1": {"repository": {}}},
+			expectedNodes:  []string{"primary", "secondary-1", "secondary-2"},
+		},
+		{
+			desc:           "unhealthy and unassigned nodes",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes:   StaticHealthChecker{"virtual-storage-1": {"primary", "secondary-1"}},
+			assignedNodes:  StaticRepositoryAssignments{"virtual-storage-1": {"repository": {"primary", "secondary-2"}}},
+			expectedNodes:  []string{"primary"},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+
+			conns := Connections{
+				"virtual-storage-1": {
+					"primary":     &grpc.ClientConn{},
+					"secondary-1": &grpc.ClientConn{},
+					"secondary-2": &grpc.ClientConn{},
+				},
+			}
+
+			tx := db.Begin(t)
+			defer tx.Rollback(t)
+
+			testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": configuredNodes})
+
+			const (
+				virtualStorage = "virtual-storage-1"
+				relativePath   = "repository"
+			)
+
+			rs := datastore.NewPostgresRepositoryStore(tx, nil)
+			repositoryID, err := rs.ReserveRepositoryID(ctx, virtualStorage, relativePath)
+			require.NoError(t, err)
+
+			require.NoError(t,
+				rs.CreateRepository(ctx, repositoryID, virtualStorage, relativePath, relativePath, "primary", []string{"secondary-1", "secondary-2"}, nil, true, false),
+			)
+
+			for virtualStorage, relativePaths := range tc.assignedNodes {
+				for relativePath, storages := range relativePaths {
+					for _, storage := range storages {
+						_, err := tx.ExecContext(ctx, `
+							INSERT INTO repository_assignments
+							VALUES ($1, $2, $3, $4)
+						`, virtualStorage, relativePath, storage, repositoryID)
+						require.NoError(t, err)
+					}
+				}
+			}
+
+			router := NewPerRepositoryRouter(
+				conns,
+				nodes.NewPerRepositoryElector(tx),
+				tc.healthyNodes,
+				nil,
+				rs,
+				datastore.NewAssignmentStore(tx, configuredNodes),
+				rs,
+				nil,
+			)
+
+			route, err := router.RouteRepositoryMaintenance(ctx, tc.virtualStorage, relativePath)
+			require.Equal(t, tc.expectedErr, err)
+			if err == nil {
+				var expectedNodes []RouterNode
+				for _, expectedNode := range tc.expectedNodes {
+					expectedNodes = append(expectedNodes, RouterNode{
+						Storage:    expectedNode,
+						Connection: conns[tc.virtualStorage][expectedNode],
+					})
+				}
+
+				require.Equal(t, RepositoryMaintenanceRoute{
+					RepositoryID: repositoryID,
+					ReplicaPath:  relativePath,
+					Nodes:        expectedNodes,
+				}, route)
+			}
+		})
+	}
+}
+
 func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 	t.Parallel()
 

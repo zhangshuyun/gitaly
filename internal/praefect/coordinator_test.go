@@ -386,6 +386,155 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStreamDirector_maintenance(t *testing.T) {
+	t.Parallel()
+
+	node1 := &config.Node{
+		Address: "unix://" + testhelper.GetTemporaryGitalySocketFileName(t),
+		Storage: "praefect-internal-1",
+	}
+
+	node2 := &config.Node{
+		Address: "unix://" + testhelper.GetTemporaryGitalySocketFileName(t),
+		Storage: "praefect-internal-2",
+	}
+
+	cfg := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name:  "praefect",
+				Nodes: []*config.Node{node1, node2},
+			},
+		},
+	}
+
+	db := testdb.New(t)
+
+	repo := gitalypb.Repository{
+		StorageName:  "praefect",
+		RelativePath: "/path/to/hashed/storage",
+	}
+
+	ctx := testhelper.Context(t)
+
+	nodeSet, err := DialNodes(ctx, cfg.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	require.NoError(t, err)
+	defer nodeSet.Close()
+
+	tx := db.Begin(t)
+	defer tx.Rollback(t)
+
+	rs := datastore.NewPostgresRepositoryStore(tx, cfg.StorageNames())
+	require.NoError(t, rs.CreateRepository(ctx, 1, repo.StorageName, repo.RelativePath,
+		repo.RelativePath, node1.Storage, []string{node2.Storage}, nil, true, true))
+
+	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": cfg.StorageNames()})
+
+	registry, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
+	require.NoError(t, err)
+
+	coordinator := NewCoordinator(
+		nil,
+		rs,
+		NewPerRepositoryRouter(
+			nodeSet.Connections(),
+			nodes.NewPerRepositoryElector(tx),
+			StaticHealthChecker(cfg.StorageNames()),
+			NewLockedRandom(rand.New(rand.NewSource(0))),
+			rs,
+			datastore.NewAssignmentStore(tx, cfg.StorageNames()),
+			rs,
+			nil,
+		),
+		nil,
+		cfg,
+		registry,
+	)
+
+	message, err := proto.Marshal(&mock.RepoRequest{
+		Repo: &repo,
+	})
+	require.NoError(t, err)
+
+	methodInfo, err := registry.LookupMethod("/mock.SimpleService/RepoMaintenanceUnary")
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		desc         string
+		primaryErr   error
+		secondaryErr error
+		expectedErr  error
+	}{
+		{
+			desc: "successful",
+		},
+		{
+			desc:        "primary returns an error",
+			primaryErr:  helper.ErrNotFoundf("primary error"),
+			expectedErr: helper.ErrNotFoundf("primary error"),
+		},
+		{
+			desc:         "secondary returns an error",
+			secondaryErr: helper.ErrNotFoundf("secondary error"),
+			expectedErr:  helper.ErrNotFoundf("secondary error"),
+		},
+		{
+			desc:         "primary error preferred",
+			primaryErr:   helper.ErrNotFoundf("primary error"),
+			secondaryErr: helper.ErrNotFoundf("secondary error"),
+			expectedErr:  helper.ErrNotFoundf("primary error"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			streamParams, err := coordinator.StreamDirector(ctx, methodInfo.FullMethodName(), &mockPeeker{message})
+			require.NoError(t, err)
+
+			var targetNodes []string
+			destinationByAddress := make(map[string]proxy.Destination)
+			for _, node := range append(streamParams.Secondaries(), streamParams.Primary()) {
+				targetNodes = append(targetNodes, node.Conn.Target())
+				destinationByAddress[node.Conn.Target()] = node
+			}
+
+			// Assert that both nodes are part of the stream parameters. Because the
+			// order is not deterministic (we randomly shuffle primary and secondary
+			// nodes) we only assert that elements match, not that any of both nodes has
+			// a specific role.
+			require.ElementsMatch(t, []string{
+				node1.Address,
+				node2.Address,
+			}, targetNodes)
+
+			// Assert that the target repositories were rewritten as expected for all of
+			// the nodes.
+			for _, nodeCfg := range []*config.Node{node1, node2} {
+				destination, ok := destinationByAddress[nodeCfg.Address]
+				require.True(t, ok)
+
+				request, err := methodInfo.UnmarshalRequestProto(destination.Msg)
+				require.NoError(t, err)
+
+				rewrittenTargetRepo, err := methodInfo.TargetRepo(request)
+				require.NoError(t, err)
+				require.Equal(t, nodeCfg.Storage, rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
+			}
+
+			// We now inject errors into the streams by manually executing the error
+			// handlers. This simulates that the RPCs have been proxied and may or may
+			// not have returned an error.
+			//
+			// Note that these functions should not return an error: this is a strict
+			// requirement because otherwise failures returned by the primary would
+			// abort the operation on secondaries.
+			require.Nil(t, streamParams.Primary().ErrHandler(tc.primaryErr))
+			require.Nil(t, streamParams.Secondaries()[0].ErrHandler(tc.secondaryErr))
+
+			// The request finalizer should then see the errors as injected above.
+			require.Equal(t, tc.expectedErr, streamParams.RequestFinalizer())
+		})
+	}
+}
+
 type mockRouter struct {
 	Router
 	routeRepositoryAccessorFunc func(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error)

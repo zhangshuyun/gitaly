@@ -23,6 +23,8 @@ type SimpleServiceClient interface {
 	RepoAccessorUnary(ctx context.Context, in *RepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// RepoMutatorUnary is a unary RPC that mutates a repo
 	RepoMutatorUnary(ctx context.Context, in *RepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// RepoMaintenanceUnary is a unary RPC that maintains a repo
+	RepoMaintenanceUnary(ctx context.Context, in *RepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type simpleServiceClient struct {
@@ -51,6 +53,15 @@ func (c *simpleServiceClient) RepoMutatorUnary(ctx context.Context, in *RepoRequ
 	return out, nil
 }
 
+func (c *simpleServiceClient) RepoMaintenanceUnary(ctx context.Context, in *RepoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/mock.SimpleService/RepoMaintenanceUnary", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SimpleServiceServer is the server API for SimpleService service.
 // All implementations must embed UnimplementedSimpleServiceServer
 // for forward compatibility
@@ -59,6 +70,8 @@ type SimpleServiceServer interface {
 	RepoAccessorUnary(context.Context, *RepoRequest) (*emptypb.Empty, error)
 	// RepoMutatorUnary is a unary RPC that mutates a repo
 	RepoMutatorUnary(context.Context, *RepoRequest) (*emptypb.Empty, error)
+	// RepoMaintenanceUnary is a unary RPC that maintains a repo
+	RepoMaintenanceUnary(context.Context, *RepoRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedSimpleServiceServer()
 }
 
@@ -71,6 +84,9 @@ func (UnimplementedSimpleServiceServer) RepoAccessorUnary(context.Context, *Repo
 }
 func (UnimplementedSimpleServiceServer) RepoMutatorUnary(context.Context, *RepoRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepoMutatorUnary not implemented")
+}
+func (UnimplementedSimpleServiceServer) RepoMaintenanceUnary(context.Context, *RepoRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RepoMaintenanceUnary not implemented")
 }
 func (UnimplementedSimpleServiceServer) mustEmbedUnimplementedSimpleServiceServer() {}
 
@@ -121,6 +137,24 @@ func _SimpleService_RepoMutatorUnary_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SimpleService_RepoMaintenanceUnary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RepoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SimpleServiceServer).RepoMaintenanceUnary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/mock.SimpleService/RepoMaintenanceUnary",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SimpleServiceServer).RepoMaintenanceUnary(ctx, req.(*RepoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SimpleService_ServiceDesc is the grpc.ServiceDesc for SimpleService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -135,6 +169,10 @@ var SimpleService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RepoMutatorUnary",
 			Handler:    _SimpleService_RepoMutatorUnary_Handler,
+		},
+		{
+			MethodName: "RepoMaintenanceUnary",
+			Handler:    _SimpleService_RepoMaintenanceUnary_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

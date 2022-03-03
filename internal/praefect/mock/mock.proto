@@ -33,4 +33,12 @@ service SimpleService {
       scope_level: REPOSITORY
     };
   }
+
+  // RepoMaintenanceUnary is a unary RPC that maintains a repo
+  rpc RepoMaintenanceUnary(RepoRequest) returns (google.protobuf.Empty) {
+    option (gitaly.op_type) = {
+      op: MAINTENANCE
+      scope_level: REPOSITORY
+    };
+  }
 }

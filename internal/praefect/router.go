@@ -49,6 +49,16 @@ type RepositoryMutatorRoute struct {
 	ReplicationTargets []string
 }
 
+// RepositoryMaintenanceRoute describes how to route a repository scoped maintenance call.
+type RepositoryMaintenanceRoute struct {
+	// RepositoryID is the repository's ID as Praefect identifies it.
+	RepositoryID int64
+	// ReplicaPath is the disk path where the replicas are stored.
+	ReplicaPath string
+	// Nodes contains all the nodes the call should be routed to.
+	Nodes []RouterNode
+}
+
 // Router decides which nodes to direct accessor and mutator RPCs to.
 type Router interface {
 	// RouteStorageAccessor returns the node which should serve the storage accessor request.
@@ -66,4 +76,9 @@ type Router interface {
 	// RouteRepositoryCreation decides returns the primary and secondaries that should handle the repository creation
 	// request. It is up to the caller to store the assignments and primary information after finishing the RPC.
 	RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error)
+	// RouteRepositoryMaintenance routes the given maintenance-style RPC to all nodes which
+	// should perform maintenance. This would typically include all online nodes, regardless of
+	// whether the repository hosted by them is up-to-date or not. Maintenance tasks should
+	// never be replicated.
+	RouteRepositoryMaintenance(ctx context.Context, virtualStorage, relativePath string) (RepositoryMaintenanceRoute, error)
 }

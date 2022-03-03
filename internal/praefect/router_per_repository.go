@@ -366,3 +366,53 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 		ReplicationTargets:    replicationTargets,
 	}, nil
 }
+
+// RouteRepositoryMaintenance will route the maintenance call to all healthy nodes in a best-effort
+// strategy. We do not raise an error in case the primary node is unhealthy, but will in case all
+// nodes are unhealthy.
+func (r *PerRepositoryRouter) RouteRepositoryMaintenance(ctx context.Context, virtualStorage, relativePath string) (RepositoryMaintenanceRoute, error) {
+	healthyNodes, err := r.healthyNodes(virtualStorage)
+	if err != nil {
+		return RepositoryMaintenanceRoute{}, err
+	}
+
+	healthySet := make(map[string]RouterNode)
+	for _, healthyNode := range healthyNodes {
+		healthySet[healthyNode.Storage] = healthyNode
+	}
+
+	repositoryID, err := r.rs.GetRepositoryID(ctx, virtualStorage, relativePath)
+	if err != nil {
+		return RepositoryMaintenanceRoute{}, fmt.Errorf("repository id: %w", err)
+	}
+
+	replicaPath, err := r.rs.GetReplicaPath(ctx, repositoryID)
+	if err != nil {
+		return RepositoryMaintenanceRoute{}, fmt.Errorf("consistent storages: %w", err)
+	}
+
+	assignedStorages, err := r.ag.GetHostAssignments(ctx, virtualStorage, repositoryID)
+	if err != nil {
+		return RepositoryMaintenanceRoute{}, fmt.Errorf("host assignments: %w", err)
+	}
+
+	nodes := make([]RouterNode, 0, len(assignedStorages))
+	for _, assignedStorage := range assignedStorages {
+		node, healthy := healthySet[assignedStorage]
+		if !healthy {
+			continue
+		}
+
+		nodes = append(nodes, node)
+	}
+
+	if len(nodes) == 0 {
+		return RepositoryMaintenanceRoute{}, ErrNoHealthyNodes
+	}
+
+	return RepositoryMaintenanceRoute{
+		RepositoryID: repositoryID,
+		ReplicaPath:  replicaPath,
+		Nodes:        nodes,
+	}, nil
+}

@@ -151,3 +151,34 @@ func (r *nodeManagerRouter) RouteRepositoryCreation(ctx context.Context, virtual
 		ReplicationTargets:    replicationTargets,
 	}, nil
 }
+
+// RouteRepositoryMaintenance includes all healthy nodes regardless of whether they're consistent or
+// not.
+func (r *nodeManagerRouter) RouteRepositoryMaintenance(ctx context.Context, virtualStorage, relativePath string) (RepositoryMaintenanceRoute, error) {
+	shard, err := r.mgr.GetShard(ctx, virtualStorage)
+	if err != nil {
+		return RepositoryMaintenanceRoute{}, fmt.Errorf("get shard: %w", err)
+	}
+
+	nodes := make([]RouterNode, 0, 1+len(shard.Secondaries))
+
+	if shard.Primary.IsHealthy() {
+		nodes = append(nodes, toRouterNode(shard.Primary))
+	}
+
+	for _, secondary := range shard.Secondaries {
+		if secondary.IsHealthy() {
+			nodes = append(nodes, toRouterNode(secondary))
+			continue
+		}
+	}
+
+	if len(nodes) == 0 {
+		return RepositoryMaintenanceRoute{}, ErrNoHealthyNodes
+	}
+
+	return RepositoryMaintenanceRoute{
+		ReplicaPath: relativePath,
+		Nodes:       nodes,
+	}, nil
+}
