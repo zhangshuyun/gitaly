@@ -102,7 +102,7 @@ service RefService {
   rpc PackRefs(PackRefsRequest) returns (PackRefsResponse) {
     option deprecated = true;
     option (op_type) = {
-      op: MUTATOR
+      op: MAINTENANCE
     };
   }
 

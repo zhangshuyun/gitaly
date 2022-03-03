@@ -92,20 +92,9 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.ObjectPoolService/ReduplicateRepository":      transactionsDisabled,
 	"/gitaly.RepositoryService/RenameRepository":           transactionsDisabled,
 
-	// The following list of RPCs are considered idempotent RPCs: while they write into the
-	// target repository, this shouldn't ever have any user-visible impact given that they're
-	// purely optimizations of the on-disk state. These RPCs are thus treated specially and
-	// shouldn't ever cause a repository generation bump.
-	"/gitaly.RefService/PackRefs":                       transactionsDisabled,
-	"/gitaly.RepositoryService/Cleanup":                 transactionsDisabled,
-	"/gitaly.RepositoryService/GarbageCollect":          transactionsDisabled,
-	"/gitaly.RepositoryService/MidxRepack":              transactionsDisabled,
-	"/gitaly.RepositoryService/OptimizeRepository":      transactionsDisabled,
-	"/gitaly.RepositoryService/PruneUnreachableObjects": transactionsDisabled,
-	"/gitaly.RepositoryService/RepackFull":              transactionsDisabled,
-	"/gitaly.RepositoryService/RepackIncremental":       transactionsDisabled,
-	"/gitaly.RepositoryService/RestoreCustomHooks":      transactionsDisabled,
-	"/gitaly.RepositoryService/WriteCommitGraph":        transactionsDisabled,
+	// This RPC call should be made transactional. Furthermore, we should consider whether we
+	// have to replicate custom hooks.
+	"/gitaly.RepositoryService/RestoreCustomHooks": transactionsDisabled,
 }
 
 // forcePrimaryRoutingRPCs tracks RPCs which need to always get routed to the primary. This should

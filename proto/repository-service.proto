@@ -18,7 +18,7 @@ service RepositoryService {
   rpc RepackIncremental(RepackIncrementalRequest) returns (RepackIncrementalResponse) {
     option deprecated = true;
     option (op_type) = {
-      op: MUTATOR
+      op: MAINTENANCE
     };
   }
 
@@ -26,7 +26,7 @@ service RepositoryService {
   rpc RepackFull(RepackFullRequest) returns (RepackFullResponse) {
     option deprecated = true;
     option (op_type) = {
-      op: MUTATOR
+      op: MAINTENANCE
     };
   }
 
@@ -34,7 +34,7 @@ service RepositoryService {
   rpc MidxRepack(MidxRepackRequest) returns (MidxRepackResponse) {
     option deprecated = true;
     option (op_type) = {
-      op: MUTATOR
+      op: MAINTENANCE
     };
   }
 
@@ -42,7 +42,7 @@ service RepositoryService {
   rpc GarbageCollect(GarbageCollectRequest) returns (GarbageCollectResponse) {
     option deprecated = true;
     option (op_type) = {
-      op: MUTATOR
+      op: MAINTENANCE
     };
   }
 
@@ -50,7 +50,7 @@ service RepositoryService {
   rpc WriteCommitGraph(WriteCommitGraphRequest) returns (WriteCommitGraphResponse) {
     option deprecated = true;
     option (op_type) = {
-      op: MUTATOR
+      op: MAINTENANCE
     };
   }
 
@@ -180,7 +180,7 @@ service RepositoryService {
   rpc Cleanup(CleanupRequest) returns (CleanupResponse) {
     option deprecated = true;
     option (op_type) = {
-      op: MUTATOR
+      op: MAINTENANCE
     };
   }
 
@@ -251,7 +251,7 @@ service RepositoryService {
   // Gitaly has complete control of the on-disk state of repositories.
   rpc OptimizeRepository(OptimizeRepositoryRequest) returns (OptimizeRepositoryResponse) {
     option (op_type)  = {
-      op: MUTATOR
+      op: MAINTENANCE
     };
   }
 
@@ -268,7 +268,7 @@ service RepositoryService {
   // wait 30 minutes, and then call PruneUnreachableObjects.
   rpc PruneUnreachableObjects(PruneUnreachableObjectsRequest) returns (PruneUnreachableObjectsResponse) {
     option (op_type)  = {
-      op: MUTATOR
+      op: MAINTENANCE
     };
   }
 
