@@ -2,20 +2,17 @@
 
 require 'gitlab-dangerfiles'
 
-Gitlab::Dangerfiles.for_project(self) do |dangerfiles|
-  dangerfiles.import_defaults
+Gitlab::Dangerfiles.for_project(self) do |gitlab_dangerfiles|
+  gitlab_dangerfiles.config.files_to_category = {
+    %r{\Adoc/.*(\.(md|png|gif|jpg))\z} => :docs,
+    %r{\A(CONTRIBUTING|LICENSE|README|REVIEWING|STYLE)(\.md)?\z} => :docs,
 
-  danger.import_plugin('danger/plugins/*.rb')
+    %r{.*} => [nil]
+  }.freeze
 
   Dir.each_child('danger/rules') do |rule|
     danger.import_dangerfile(path: "danger/rules/#{rule}")
   end
 
-  anything_to_post = status_report.values.any?(&:any?)
-
-  if helper.ci? && anything_to_post
-    markdown("**If needed, you can retry the [`danger-review` job](#{ENV['CI_JOB_URL']}) that generated this comment.**")
-  end
+  gitlab_dangerfiles.import_defaults
 end
-
-# vim: ft=ruby

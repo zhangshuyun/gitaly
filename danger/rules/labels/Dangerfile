@@ -1,30 +1,13 @@
-def changelog_entry
-  @changelog_entry ||=
-    begin
-      file = git.added_files.find { |path| path =~ %r{\Achangelogs/unreleased/} }
-
-      YAML.safe_load(File.read(file))
-    rescue
-      # The change log danger file will handle this
-      {}
-    end
-end
-
-required_labels = %w[devops::create]
-
-TYPE_TO_LABEL = {
-  'added' => %w[type::feature feature::addition],
-  'fixed' => ['type::bug'],
-  'changed' => ['type::maintenance'],
-  'deprecated' => ['type::maintenance'],
-  'security' => ['security'],
-  'removed' => ['type::maintenance'],
-  'performance' => %w[type::maintenance performance],
-  'other' => ['type::tooling'],
-  nil => []
-}
-
-INHERITABLE_LABELS = TYPE_TO_LABEL.values.flatten + %w[Deliverable]
+INHERITABLE_LABELS = %w[
+  type::bug
+  type::feature
+  feature::addition
+  type::maintenance
+  type::maintenance
+  security
+  performance
+  Deliverable
+]
 
 def inherited_labels
   gitlab.api
@@ -35,13 +18,4 @@ def inherited_labels
     .select { |label| INHERITABLE_LABELS.include?(label) }
 end
 
-required_labels.concat(TYPE_TO_LABEL[changelog_entry["type"]])
-
-mr_labels = gitlab.mr_labels | required_labels | inherited_labels
-gitlab.api.update_merge_request(
-  gitlab.mr_json['project_id'],
-  gitlab.mr_json['iid'],
-  labels: mr_labels.join(",")
-)
-
-# vim: ft=ruby
+helper.labels_to_add.concat(%w[devops::create] | inherited_labels)
