@@ -386,11 +386,6 @@ func TestReconciler(t *testing.T) {
 				[]datastore.ChangeType{
 					datastore.DeleteRepo,
 					datastore.RenameRepo,
-					datastore.GarbageCollect,
-					datastore.RepackFull,
-					datastore.RepackIncremental,
-					datastore.Cleanup,
-					datastore.PackRefs,
 				},
 				datastore.ReplicationJob{
 					VirtualStorage:    "virtual-storage-1",

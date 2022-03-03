@@ -47,24 +47,6 @@ const (
 	DeleteReplica = ChangeType("delete_replica")
 	// RenameRepo is when a replication renames repo
 	RenameRepo = ChangeType("rename")
-	// GarbageCollect is when replication runs gc
-	GarbageCollect = ChangeType("gc")
-	// RepackFull is when replication runs a full repack
-	RepackFull = ChangeType("repack_full")
-	// RepackIncremental is when replication runs an incremental repack
-	RepackIncremental = ChangeType("repack_incremental")
-	// Cleanup is when replication runs a repo cleanup
-	Cleanup = ChangeType("cleanup")
-	// PackRefs is when replication optimizes references in a repo
-	PackRefs = ChangeType("pack_refs")
-	// WriteCommitGraph is when replication writes a commit graph
-	WriteCommitGraph = ChangeType("write_commit_graph")
-	// MidxRepack is when replication does a multi-pack-index repack
-	MidxRepack = ChangeType("midx_repack")
-	// OptimizeRepository is when replication optimizes a repository
-	OptimizeRepository = ChangeType("optimize_repository")
-	// PruneUnreachableObjects is when replication prunes unreachable objects in a repository
-	PruneUnreachableObjects = ChangeType("prune_unreachable_objects")
 )
 
 func (ct ChangeType) String() string {
