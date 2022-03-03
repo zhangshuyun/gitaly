@@ -14,6 +14,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       value :UNKNOWN, 0
       value :MUTATOR, 1
       value :ACCESSOR, 2
+      value :MAINTENANCE, 3
     end
     add_enum "gitaly.OperationMsg.Scope" do
       value :REPOSITORY, 0

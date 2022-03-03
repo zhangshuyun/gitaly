@@ -11,6 +11,7 @@ message OperationMsg {
     UNKNOWN = 0;
     MUTATOR = 1;
     ACCESSOR = 2;
+    MAINTENANCE = 3;
   }
 
   Operation op = 1;
