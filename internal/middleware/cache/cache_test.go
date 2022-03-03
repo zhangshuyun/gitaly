@@ -70,11 +70,19 @@ func TestInvalidators(t *testing.T) {
 		StorageName:                   "3",
 	}
 
-	expectedSvcRequests := []*gitalypb.Repository{repo1, repo2, repo3, repo1, repo2}
+	expectedSvcRequests := []*gitalypb.Repository{repo1, repo1, repo2, repo3, repo1, repo2, repo2}
 	expectedInvalidations := []*gitalypb.Repository{repo2, repo3, repo1}
 
 	// Should NOT trigger cache invalidation
 	c, err := cli.ClientStreamRepoAccessor(ctx, &testdata.Request{
+		Destination: repo1,
+	})
+	assert.NoError(t, err)
+	_, err = c.Recv() // make client call synchronous by waiting for close
+	assert.Equal(t, err, io.EOF)
+
+	// Should NOT trigger cache invalidation
+	c, err = cli.ClientStreamRepoMaintainer(ctx, &testdata.Request{
 		Destination: repo1,
 	})
 	assert.NoError(t, err)
@@ -105,6 +113,12 @@ func TestInvalidators(t *testing.T) {
 
 	// Should NOT trigger cache invalidation
 	_, err = cli.ClientUnaryRepoAccessor(ctx, &testdata.Request{
+		Destination: repo2,
+	})
+	require.NoError(t, err)
+
+	// Should NOT trigger cache invalidation
+	_, err = cli.ClientUnaryRepoMaintainer(ctx, &testdata.Request{
 		Destination: repo2,
 	})
 	require.NoError(t, err)
@@ -203,12 +217,22 @@ func (ts *testSvc) ClientStreamRepoAccessor(req *testdata.Request, _ testdata.Te
 	return nil
 }
 
+func (ts *testSvc) ClientStreamRepoMaintainer(req *testdata.Request, _ testdata.TestService_ClientStreamRepoMaintainerServer) error {
+	ts.repoRequests = append(ts.repoRequests, req.GetDestination())
+	return nil
+}
+
 func (ts *testSvc) ClientUnaryRepoMutator(_ context.Context, req *testdata.Request) (*testdata.Response, error) {
 	ts.repoRequests = append(ts.repoRequests, req.GetDestination())
 	return &testdata.Response{}, nil
 }
 
 func (ts *testSvc) ClientUnaryRepoAccessor(_ context.Context, req *testdata.Request) (*testdata.Response, error) {
+	ts.repoRequests = append(ts.repoRequests, req.GetDestination())
+	return &testdata.Response{}, nil
+}
+
+func (ts *testSvc) ClientUnaryRepoMaintainer(_ context.Context, req *testdata.Request) (*testdata.Response, error) {
 	ts.repoRequests = append(ts.repoRequests, req.GetDestination())
 	return &testdata.Response{}, nil
 }

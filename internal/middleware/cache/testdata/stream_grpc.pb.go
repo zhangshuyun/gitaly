@@ -106,8 +106,10 @@ var InterceptedService_ServiceDesc = grpc.ServiceDesc{
 type TestServiceClient interface {
 	ClientStreamRepoMutator(ctx context.Context, in *Request, opts ...grpc.CallOption) (TestService_ClientStreamRepoMutatorClient, error)
 	ClientStreamRepoAccessor(ctx context.Context, in *Request, opts ...grpc.CallOption) (TestService_ClientStreamRepoAccessorClient, error)
+	ClientStreamRepoMaintainer(ctx context.Context, in *Request, opts ...grpc.CallOption) (TestService_ClientStreamRepoMaintainerClient, error)
 	ClientUnaryRepoMutator(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
 	ClientUnaryRepoAccessor(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
+	ClientUnaryRepoMaintainer(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
 }
 
 type testServiceClient struct {
@@ -182,6 +184,38 @@ func (x *testServiceClientStreamRepoAccessorClient) Recv() (*Response, error) {
 	return m, nil
 }
 
+func (c *testServiceClient) ClientStreamRepoMaintainer(ctx context.Context, in *Request, opts ...grpc.CallOption) (TestService_ClientStreamRepoMaintainerClient, error) {
+	stream, err := c.cc.NewStream(ctx, &TestService_ServiceDesc.Streams[2], "/testdata.TestService/ClientStreamRepoMaintainer", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &testServiceClientStreamRepoMaintainerClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type TestService_ClientStreamRepoMaintainerClient interface {
+	Recv() (*Response, error)
+	grpc.ClientStream
+}
+
+type testServiceClientStreamRepoMaintainerClient struct {
+	grpc.ClientStream
+}
+
+func (x *testServiceClientStreamRepoMaintainerClient) Recv() (*Response, error) {
+	m := new(Response)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *testServiceClient) ClientUnaryRepoMutator(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error) {
 	out := new(Response)
 	err := c.cc.Invoke(ctx, "/testdata.TestService/ClientUnaryRepoMutator", in, out, opts...)
@@ -200,14 +234,25 @@ func (c *testServiceClient) ClientUnaryRepoAccessor(ctx context.Context, in *Req
 	return out, nil
 }
 
+func (c *testServiceClient) ClientUnaryRepoMaintainer(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error) {
+	out := new(Response)
+	err := c.cc.Invoke(ctx, "/testdata.TestService/ClientUnaryRepoMaintainer", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TestServiceServer is the server API for TestService service.
 // All implementations must embed UnimplementedTestServiceServer
 // for forward compatibility
 type TestServiceServer interface {
 	ClientStreamRepoMutator(*Request, TestService_ClientStreamRepoMutatorServer) error
 	ClientStreamRepoAccessor(*Request, TestService_ClientStreamRepoAccessorServer) error
+	ClientStreamRepoMaintainer(*Request, TestService_ClientStreamRepoMaintainerServer) error
 	ClientUnaryRepoMutator(context.Context, *Request) (*Response, error)
 	ClientUnaryRepoAccessor(context.Context, *Request) (*Response, error)
+	ClientUnaryRepoMaintainer(context.Context, *Request) (*Response, error)
 	mustEmbedUnimplementedTestServiceServer()
 }
 
@@ -221,11 +266,17 @@ func (UnimplementedTestServiceServer) ClientStreamRepoMutator(*Request, TestServ
 func (UnimplementedTestServiceServer) ClientStreamRepoAccessor(*Request, TestService_ClientStreamRepoAccessorServer) error {
 	return status.Errorf(codes.Unimplemented, "method ClientStreamRepoAccessor not implemented")
 }
+func (UnimplementedTestServiceServer) ClientStreamRepoMaintainer(*Request, TestService_ClientStreamRepoMaintainerServer) error {
+	return status.Errorf(codes.Unimplemented, "method ClientStreamRepoMaintainer not implemented")
+}
 func (UnimplementedTestServiceServer) ClientUnaryRepoMutator(context.Context, *Request) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ClientUnaryRepoMutator not implemented")
 }
 func (UnimplementedTestServiceServer) ClientUnaryRepoAccessor(context.Context, *Request) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ClientUnaryRepoAccessor not implemented")
+}
+func (UnimplementedTestServiceServer) ClientUnaryRepoMaintainer(context.Context, *Request) (*Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ClientUnaryRepoMaintainer not implemented")
 }
 func (UnimplementedTestServiceServer) mustEmbedUnimplementedTestServiceServer() {}
 
@@ -282,6 +333,27 @@ func (x *testServiceClientStreamRepoAccessorServer) Send(m *Response) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _TestService_ClientStreamRepoMaintainer_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Request)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(TestServiceServer).ClientStreamRepoMaintainer(m, &testServiceClientStreamRepoMaintainerServer{stream})
+}
+
+type TestService_ClientStreamRepoMaintainerServer interface {
+	Send(*Response) error
+	grpc.ServerStream
+}
+
+type testServiceClientStreamRepoMaintainerServer struct {
+	grpc.ServerStream
+}
+
+func (x *testServiceClientStreamRepoMaintainerServer) Send(m *Response) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _TestService_ClientUnaryRepoMutator_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Request)
 	if err := dec(in); err != nil {
@@ -318,6 +390,24 @@ func _TestService_ClientUnaryRepoAccessor_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TestService_ClientUnaryRepoMaintainer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TestServiceServer).ClientUnaryRepoMaintainer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/testdata.TestService/ClientUnaryRepoMaintainer",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TestServiceServer).ClientUnaryRepoMaintainer(ctx, req.(*Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TestService_ServiceDesc is the grpc.ServiceDesc for TestService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -333,6 +423,10 @@ var TestService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ClientUnaryRepoAccessor",
 			Handler:    _TestService_ClientUnaryRepoAccessor_Handler,
 		},
+		{
+			MethodName: "ClientUnaryRepoMaintainer",
+			Handler:    _TestService_ClientUnaryRepoMaintainer_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -343,6 +437,11 @@ var TestService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ClientStreamRepoAccessor",
 			Handler:       _TestService_ClientStreamRepoAccessor_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ClientStreamRepoMaintainer",
+			Handler:       _TestService_ClientStreamRepoMaintainer_Handler,
 			ServerStreams: true,
 		},
 	},

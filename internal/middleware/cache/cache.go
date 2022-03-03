@@ -24,6 +24,22 @@ func shouldIgnore(reg *protoregistry.Registry, fullMethod string) bool {
 	return strings.HasPrefix(fullMethod, "/grpc.health") || reg.IsInterceptedMethod(fullMethod)
 }
 
+func shouldInvalidate(mi protoregistry.MethodInfo) bool {
+	if mi.Scope != protoregistry.ScopeRepository {
+		return false
+	}
+
+	if mi.Operation == protoregistry.OpAccessor {
+		return false
+	}
+
+	if mi.Operation == protoregistry.OpMaintenance {
+		return false
+	}
+
+	return true
+}
+
 // StreamInvalidator will invalidate any mutating RPC that targets a
 // repository in a gRPC stream based RPC
 func StreamInvalidator(ci diskcache.Invalidator, reg *protoregistry.Registry) grpc.StreamServerInterceptor {
@@ -41,7 +57,7 @@ func StreamInvalidator(ci diskcache.Invalidator, reg *protoregistry.Registry) gr
 			return handler(srv, ss)
 		}
 
-		if mInfo.Scope != protoregistry.ScopeRepository || mInfo.Operation == protoregistry.OpAccessor {
+		if !shouldInvalidate(mInfo) {
 			return handler(srv, ss)
 		}
 
@@ -68,7 +84,7 @@ func UnaryInvalidator(ci diskcache.Invalidator, reg *protoregistry.Registry) grp
 			return handler(ctx, req)
 		}
 
-		if mInfo.Scope != protoregistry.ScopeRepository || mInfo.Operation == protoregistry.OpAccessor {
+		if !shouldInvalidate(mInfo) {
 			return handler(ctx, req)
 		}
 

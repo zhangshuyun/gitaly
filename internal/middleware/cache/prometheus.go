@@ -40,6 +40,8 @@ var (
 			rpcOpTypes.WithLabelValues("accessor").Inc()
 		case protoregistry.OpMutator:
 			rpcOpTypes.WithLabelValues("mutator").Inc()
+		case protoregistry.OpMaintenance:
+			rpcOpTypes.WithLabelValues("maintenance").Inc()
 		default:
 			rpcOpTypes.WithLabelValues("unknown").Inc()
 		}
