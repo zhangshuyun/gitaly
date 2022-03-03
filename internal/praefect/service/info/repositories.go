@@ -7,7 +7,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 )
 
 // RepositoryReplicas returns a list of repositories that includes the checksum of the primary as well as the replicas
@@ -30,6 +29,11 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 		return nil, fmt.Errorf("get host assignments: %w", err)
 	}
 
+	replicaPath, err := s.rs.GetReplicaPath(ctx, repositoryID)
+	if err != nil {
+		return nil, fmt.Errorf("get replica path: %w", err)
+	}
+
 	secondaries := make([]string, 0, len(assignments)-1)
 	primaryIsAssigned := false
 	for _, assignment := range assignments {
@@ -47,7 +51,7 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 
 	var resp gitalypb.RepositoryReplicasResponse
 
-	if resp.Primary, err = s.getRepositoryDetails(ctx, virtualStorage, primary, relativePath); err != nil {
+	if resp.Primary, err = s.getRepositoryDetails(ctx, virtualStorage, primary, relativePath, replicaPath); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
@@ -60,7 +64,7 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 		storage := storage // rescoping
 		g.Go(func() error {
 			var err error
-			resp.Replicas[i], err = s.getRepositoryDetails(ctx, virtualStorage, storage, relativePath)
+			resp.Replicas[i], err = s.getRepositoryDetails(ctx, virtualStorage, storage, relativePath, replicaPath)
 			return err
 		})
 	}
@@ -72,33 +76,28 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 	return &resp, nil
 }
 
-func (s *Server) getRepositoryDetails(ctx context.Context, virtualStorage, storage, relativePath string) (*gitalypb.RepositoryReplicasResponse_RepositoryDetails, error) {
+func (s *Server) getRepositoryDetails(ctx context.Context, virtualStorage, storage, relativePath, replicaPath string) (*gitalypb.RepositoryReplicasResponse_RepositoryDetails, error) {
 	conn, ok := s.conns[virtualStorage][storage]
 	if !ok {
 		return nil, fmt.Errorf("no connection to %q/%q", virtualStorage, storage)
 	}
 
-	return getChecksum(
-		ctx,
-		&gitalypb.Repository{
-			StorageName:  storage,
-			RelativePath: relativePath,
-		}, conn)
-}
-
-func getChecksum(ctx context.Context, repo *gitalypb.Repository, cc *grpc.ClientConn) (*gitalypb.RepositoryReplicasResponse_RepositoryDetails, error) {
-	client := gitalypb.NewRepositoryServiceClient(cc)
-
-	resp, err := client.CalculateChecksum(ctx,
+	resp, err := gitalypb.NewRepositoryServiceClient(conn).CalculateChecksum(ctx,
 		&gitalypb.CalculateChecksumRequest{
-			Repository: repo,
+			Repository: &gitalypb.Repository{
+				StorageName:  storage,
+				RelativePath: replicaPath,
+			},
 		})
 	if err != nil {
 		return nil, err
 	}
 
 	return &gitalypb.RepositoryReplicasResponse_RepositoryDetails{
-		Repository: repo,
-		Checksum:   resp.GetChecksum(),
+		Repository: &gitalypb.Repository{
+			StorageName:  storage,
+			RelativePath: relativePath,
+		},
+		Checksum: resp.GetChecksum(),
 	}, nil
 }

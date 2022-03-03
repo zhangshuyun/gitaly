@@ -2,10 +2,10 @@ package praefect
 
 import (
 	"math/rand"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -14,6 +14,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/service/transaction"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testdb"
@@ -24,15 +27,13 @@ import (
 
 func TestInfoService_RepositoryReplicas(t *testing.T) {
 	t.Parallel()
+
 	var cfgs []gconfig.Cfg
 	var cfgNodes []*config.Node
-	var testRepo *gitalypb.Repository
 	storages := []string{"g-1", "g-2", "g-3"}
+
 	for i, storage := range storages {
-		cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages(storage))
-		if testRepo == nil {
-			testRepo = repo
-		}
+		cfg := testcfg.Build(t, testcfg.WithStorages(storage))
 		cfgs = append(cfgs, cfg)
 		cfgs[i].SocketPath = testserver.RunGitalyServer(t, cfgs[i], nil, func(srv *grpc.Server, deps *service.Dependencies) {
 			gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
@@ -60,27 +61,42 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 		Failover:        config.Failover{Enabled: true},
 	}
 
-	// create a commit in the second replica so we can check that its checksum is different than the primary
-	gittest.WriteCommit(t, cfgs[1], filepath.Join(cfgs[1].Storages[0].Path, testRepo.GetRelativePath()), gittest.WithBranch("master"))
 	ctx := testhelper.Context(t)
 
-	tx := testdb.New(t).Begin(t)
-	defer tx.Rollback(t)
-
-	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
-		"praefect-0": {virtualStorage: storages},
-	})
-
-	nodeSet, err := DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, nil, nil)
-	require.NoError(t, err)
-	defer nodeSet.Close()
-
-	elector := nodes.NewPerRepositoryElector(tx)
-	conns := nodeSet.Connections()
-	rs := datastore.NewPostgresRepositoryStore(tx, conf.StorageNames())
-	require.NoError(t,
-		rs.CreateRepository(ctx, 1, virtualStorage, testRepo.GetRelativePath(), testRepo.GetRelativePath(), "g-1", []string{"g-2", "g-3"}, nil, true, false),
+	db := testdb.New(t)
+	logger := testhelper.NewDiscardingLogEntry(t)
+	// the only thing used from the config is the grpc_latency_buckets which is not relevant for the test
+	txManager := transactions.NewManager(config.Config{})
+	sidechannelRegistry := sidechannel.NewRegistry()
+	nodeSet, err := DialNodes(
+		ctx,
+		conf.VirtualStorages,
+		protoregistry.GitalyProtoPreregistered,
+		nil,
+		backchannel.NewClientHandshaker(
+			logger,
+			NewBackchannelServerFactory(
+				logger,
+				transaction.NewServer(txManager),
+				sidechannelRegistry,
+			),
+		),
+		sidechannelRegistry,
 	)
+	require.NoError(t, err)
+	t.Cleanup(nodeSet.Close)
+
+	// Use a transaction in the elector itself to avoid flakiness due to the health timeout. We mark
+	// only the first repo has healthy so the elector picks it always as the primary.
+	tx := db.Begin(t)
+	t.Cleanup(func() { tx.Rollback(t) })
+	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{
+		"praefect-0": {virtualStorage: storages[0:1]},
+	})
+	elector := nodes.NewPerRepositoryElector(tx)
+
+	conns := nodeSet.Connections()
+	rs := datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 
 	cc, _, cleanup := runPraefectServer(t, ctx, conf, buildOptions{
 		withConnections: conns,
@@ -91,33 +107,38 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 			StaticHealthChecker{virtualStorage: storages},
 			NewLockedRandom(rand.New(rand.NewSource(0))),
 			rs,
-			datastore.NewAssignmentStore(tx, conf.StorageNames()),
+			datastore.NewAssignmentStore(db, conf.StorageNames()),
 			rs,
 			conf.DefaultReplicationFactors(),
 		),
 		withPrimaryGetter: elector,
+		withTxMgr:         txManager,
 	})
-	defer cleanup()
+	// use cleanup to close the connections as gittest.CreateRepository will still use the connection
+	// for clean up after the test.
+	t.Cleanup(cleanup)
 
 	client := gitalypb.NewPraefectInfoServiceClient(cc)
 
+	testRepository, testRepoPath := gittest.CreateRepository(ctx, t,
+		// The helper was implemented with the test server in mind. Here we need use the virtual storage's name
+		// as the storage and the path of the storage we want to modify the replica in.
+		gconfig.Cfg{Storages: []gconfig.Storage{{Name: virtualStorage, Path: cfgs[1].Storages[0].Path}}},
+		gittest.CreateRepositoryConfig{Seed: gittest.SeedGitLabTest, ClientConn: cc},
+	)
+
+	// create a commit in the second replica so we can check that its checksum is different than the primary
+	gittest.WriteCommit(t, cfgs[1], testRepoPath, gittest.WithBranch("master"))
+
+	// Increment the generation of the unmodified repositories so the below CalculateChecksum calls goes to one of them
+	// as the test expects the primary to have that checksum.
+	require.NoError(t, rs.IncrementGeneration(ctx, 1, cfgs[0].Storages[0].Name, []string{cfgs[2].Storages[0].Name}))
+
 	// CalculateChecksum through praefect will get the checksum of the primary
-	repoClient := gitalypb.NewRepositoryServiceClient(cc)
-	checksum, err := repoClient.CalculateChecksum(ctx, &gitalypb.CalculateChecksumRequest{
-		Repository: &gitalypb.Repository{
-			StorageName:  conf.VirtualStorages[0].Name,
-			RelativePath: testRepo.GetRelativePath(),
-		},
-	})
+	checksum, err := gitalypb.NewRepositoryServiceClient(cc).CalculateChecksum(ctx, &gitalypb.CalculateChecksumRequest{Repository: testRepository})
 	require.NoError(t, err)
 
-	resp, err := client.RepositoryReplicas(ctx, &gitalypb.RepositoryReplicasRequest{
-		Repository: &gitalypb.Repository{
-			StorageName:  conf.VirtualStorages[0].Name,
-			RelativePath: testRepo.GetRelativePath(),
-		},
-	})
-
+	resp, err := client.RepositoryReplicas(ctx, &gitalypb.RepositoryReplicasRequest{Repository: testRepository})
 	require.NoError(t, err)
 
 	require.Equal(t, checksum.Checksum, resp.Primary.Checksum)
