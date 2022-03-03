@@ -35,6 +35,10 @@ const (
 	OpAccessor
 	// OpMutator = mutator operation type (modifies a repository)
 	OpMutator
+	// OpMaintenance is an operation which performs maintenance-tasks on the repository. It
+	// shouldn't ever result in a user-visible change in behaviour, except that it may repair
+	// corrupt data.
+	OpMaintenance
 )
 
 // Scope represents the intended scope of an RPC method
@@ -250,6 +254,8 @@ func parseMethodInfo(
 		opCode = OpAccessor
 	case gitalypb.OperationMsg_MUTATOR:
 		opCode = OpMutator
+	case gitalypb.OperationMsg_MAINTENANCE:
+		opCode = OpMaintenance
 	default:
 		opCode = OpUnknown
 	}
