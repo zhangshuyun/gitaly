@@ -47,6 +47,8 @@ func observeMethodType(registry *protoregistry.Registry, fullMethod string) {
 		opType = "accessor"
 	case protoregistry.OpMutator:
 		opType = "mutator"
+	case protoregistry.OpMaintenance:
+		opType = "maintenance"
 	default:
 		return
 	}
