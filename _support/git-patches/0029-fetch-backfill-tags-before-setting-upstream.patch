@@ -1,0 +1,116 @@
+From 6bb95bf1ec7cb06eca5161fe7dcf02cfabd8de83 Mon Sep 17 00:00:00 2001
+Message-Id: <6bb95bf1ec7cb06eca5161fe7dcf02cfabd8de83.1646206542.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Thu, 17 Feb 2022 14:04:20 +0100
+Subject: [PATCH 29/34] fetch: backfill tags before setting upstream
+
+The fetch code flow is a bit hard to understand right now:
+
+    1. We optionally prune all references which have vanished on the
+       remote side.
+    2. We fetch and update all other references locally.
+    3. We update the upstream branch in the gitconfig.
+    4. We backfill tags pointing into the history we have just fetched.
+
+It is quite confusing that we fetch objects and update references in
+both (2) and (4), which is further stressed by the point that we use a
+`skip` goto label to jump from (3) to (4) in case we fail to update the
+gitconfig as expected.
+
+Reorder the code to first update all local references, and only after we
+have done so update the upstream branch information. This improves the
+code flow and furthermore makes it easier to refactor the way we update
+references together.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit efbade066083eb0a8ccee5a8290cd3fc834705f3)
+---
+ builtin/fetch.c | 35 ++++++++++++++++++-----------------
+ 1 file changed, 18 insertions(+), 17 deletions(-)
+
+diff --git a/builtin/fetch.c b/builtin/fetch.c
+index f5a64c7351..4ae1afb918 100644
+--- a/builtin/fetch.c
++++ b/builtin/fetch.c
+@@ -1539,7 +1539,7 @@ static void backfill_tags(struct transport *transport, struct ref *ref_map,
+ static int do_fetch(struct transport *transport,
+ 		    struct refspec *rs)
+ {
+-	struct ref *ref_map;
++	struct ref *ref_map = NULL;
+ 	int autotags = (transport->remote->fetch_tags == 1);
+ 	int retcode = 0;
+ 	const struct ref *remote_refs;
+@@ -1623,11 +1623,24 @@ static int do_fetch(struct transport *transport,
+ 			retcode = 1;
+ 	}
+ 	if (fetch_and_consume_refs(transport, ref_map, worktrees)) {
+-		free_refs(ref_map);
+ 		retcode = 1;
+ 		goto cleanup;
+ 	}
+ 
++	/*
++	 * If neither --no-tags nor --tags was specified, do automated tag
++	 * following.
++	 */
++	if (tags == TAGS_DEFAULT && autotags) {
++		struct ref *tags_ref_map = NULL, **tail = &tags_ref_map;
++
++		find_non_local_tags(remote_refs, &tags_ref_map, &tail);
++		if (tags_ref_map)
++			backfill_tags(transport, tags_ref_map, worktrees);
++
++		free_refs(tags_ref_map);
++	}
++
+ 	if (set_upstream) {
+ 		struct branch *branch = branch_get("HEAD");
+ 		struct ref *rm;
+@@ -1647,7 +1660,7 @@ static int do_fetch(struct transport *transport,
+ 			if (!rm->peer_ref) {
+ 				if (source_ref) {
+ 					warning(_("multiple branches detected, incompatible with --set-upstream"));
+-					goto skip;
++					goto cleanup;
+ 				} else {
+ 					source_ref = rm;
+ 				}
+@@ -1661,7 +1674,7 @@ static int do_fetch(struct transport *transport,
+ 				warning(_("could not set upstream of HEAD to '%s' from '%s' when "
+ 					  "it does not point to any branch."),
+ 					shortname, transport->remote->name);
+-				goto skip;
++				goto cleanup;
+ 			}
+ 
+ 			if (!strcmp(source_ref->name, "HEAD") ||
+@@ -1681,21 +1694,9 @@ static int do_fetch(struct transport *transport,
+ 				  "you need to specify exactly one branch with the --set-upstream option"));
+ 		}
+ 	}
+-skip:
+-	free_refs(ref_map);
+-
+-	/* if neither --no-tags nor --tags was specified, do automated tag
+-	 * following ... */
+-	if (tags == TAGS_DEFAULT && autotags) {
+-		struct ref **tail = &ref_map;
+-		ref_map = NULL;
+-		find_non_local_tags(remote_refs, &ref_map, &tail);
+-		if (ref_map)
+-			backfill_tags(transport, ref_map, worktrees);
+-		free_refs(ref_map);
+-	}
+ 
+ cleanup:
++	free_refs(ref_map);
+ 	free_worktrees(worktrees);
+ 	return retcode;
+ }
+-- 
+2.35.1
+

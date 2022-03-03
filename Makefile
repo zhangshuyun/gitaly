@@ -89,17 +89,6 @@ PROTOC_GEN_GO_GRPC_VERSION?= 1.1.0
 GIT2GO_VERSION            ?= v33
 LIBGIT2_VERSION           ?= v1.3.0
 
-# The default version is used in case the caller does not set the variable or
-# if it is either set to the empty string or "default".
-ifeq (${GIT_VERSION:default=},)
-    override GIT_VERSION := v2.33.1
-    GIT_APPLY_DEFAULT_PATCHES := YesPlease
-else
-    # Support both vX.Y.Z and X.Y.Z version patterns, since callers across GitLab
-    # use both.
-    override GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
-endif
-
 # protoc target
 PROTOC_REPO_URL ?= https://github.com/protocolbuffers/protobuf
 PROTOC_SOURCE_DIR   ?= ${DEPENDENCY_DIR}/protobuf/source
@@ -119,7 +108,6 @@ GIT_REPO_URL       ?= https://gitlab.com/gitlab-org/gitlab-git.git
 # The default prefix specifies where Git will be installed to if no GIT_PREFIX
 # was given. This directory will be cleaned up before we install into it.
 GIT_DEFAULT_PREFIX := ${DEPENDENCY_DIR}/git/install
-GIT_SOURCE_DIR     := ${DEPENDENCY_DIR}/git/source
 GIT_QUIET          :=
 ifeq (${Q},@)
     GIT_QUIET = --quiet
@@ -129,7 +117,11 @@ GIT_EXECUTABLES += git
 GIT_EXECUTABLES += git-remote-http
 GIT_EXECUTABLES += git-http-backend
 
-ifdef GIT_APPLY_DEFAULT_PATCHES
+# The default version is used in case the caller does not set the variable or
+# if it is either set to the empty string or "default".
+ifeq (${GIT_VERSION:default=},)
+    override GIT_VERSION := v2.33.1
+
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
@@ -185,6 +177,10 @@ ifdef GIT_APPLY_DEFAULT_PATCHES
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
     GIT_EXTRA_VERSION := gl3
+else
+    # Support both vX.Y.Z and X.Y.Z version patterns, since callers across GitLab
+    # use both.
+    override GIT_VERSION := $(shell echo ${GIT_VERSION} | awk '/^[0-9]\.[0-9]+\.[0-9]+$$/ { printf "v" } { print $$1 }')
 endif
 
 ifeq ($(origin GIT_BUILD_OPTIONS),undefined)
@@ -360,12 +356,16 @@ install: build
 
 .PHONY: build-bundled-git
 ## Build bundled Git binaries.
-build-bundled-git: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
+build-bundled-git: build-bundled-git-v2.33.1.gl2 build-bundled-git-v2.35.1.gl1
+build-bundled-git-v2.33.1.gl2: $(patsubst %,${BUILD_DIR}/bin/gitaly-%,${GIT_EXECUTABLES})
+build-bundled-git-v2.35.1.gl1: $(patsubst %,${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1,${GIT_EXECUTABLES})
 
 .PHONY: install-bundled-git
 ## Install bundled Git binaries. The target directory can be modified by
 ## setting PREFIX and DESTDIR.
-install-bundled-git: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%,${GIT_EXECUTABLES})
+install-bundled-git: install-bundled-git-v2.33.1.gl2 install-bundled-git-v2.35.1.gl1
+install-bundled-git-v2.33.1.gl2: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%,${GIT_EXECUTABLES})
+install-bundled-git-v2.35.1.gl1: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%-v2.35.1.gl1,${GIT_EXECUTABLES})
 
 ifdef WITH_BUNDLED_GIT
 build: build-bundled-git
@@ -591,7 +591,7 @@ ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 .PHONY: dependency-version
 ${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}" ] || >$@ echo -n "${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}"
-${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
+${DEPENDENCY_DIR}/git-%.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}" ] || >$@ echo -n "${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}"
 ${DEPENDENCY_DIR}/protoc.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}" ] || >$@ echo -n "${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}"
@@ -616,45 +616,81 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 # build binaries inside of it, we cannot depend on it directly or we'd
 # otherwise try to rebuild all targets depending on it whenever we build
 # something else. We thus depend on the Makefile instead.
-${GIT_SOURCE_DIR}/Makefile: ${DEPENDENCY_DIR}/git.version
-	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${GIT_SOURCE_DIR}
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.url ${GIT_REPO_URL}
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.tagOpt --no-tags
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin ${GIT_VERSION}
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" reset --hard
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
-ifdef GIT_PATCHES
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES})
-endif
+${DEPENDENCY_DIR}/git-%/Makefile: ${DEPENDENCY_DIR}/git-%.version
+	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} "${@D}"
+	${Q}${GIT} -C "${@D}" config remote.origin.url ${GIT_REPO_URL}
+	${Q}${GIT} -C "${@D}" config remote.origin.tagOpt --no-tags
+	${Q}${GIT} -C "${@D}" fetch --depth 1 ${GIT_QUIET} origin ${GIT_VERSION}
+	${Q}${GIT} -C "${@D}" reset --hard
+	${Q}${GIT} -C "${@D}" checkout ${GIT_QUIET} --detach FETCH_HEAD
+	${Q}if test -n "${GIT_PATCHES}"; then ${GIT} -C "${@D}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES}); fi
 	@ # We're writing the version into the "version" file in Git's own source
 	@ # directory. If it exists, Git's Makefile will pick it up and use it as
 	@ # the version instead of auto-detecting via git-describe(1).
-ifdef GIT_EXTRA_VERSION
-	${Q}echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${GIT_SOURCE_DIR}"/version
-else
-	${Q}rm -f "${GIT_SOURCE_DIR}"/version
-endif
+	${Q}if test -n "${GIT_EXTRA_VERSION}"; then echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${@D}"/version; else rm -f "${@D}"/version; fi
 	${Q}touch $@
 
-${GIT_SOURCE_DIR}/%: ${GIT_SOURCE_DIR}/Makefile
-	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} $(notdir $@)
+$(patsubst %,${DEPENDENCY_DIR}/git-\%/%,${GIT_EXECUTABLES}): ${DEPENDENCY_DIR}/git-%/Makefile
+	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "${@D}" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} ${GIT_EXECUTABLES}
 	${Q}touch $@
 
-${GIT_PREFIX}/bin/git: ${GIT_SOURCE_DIR}/Makefile
+${GIT_PREFIX}/bin/git: ${DEPENDENCY_DIR}/git-${GIT_VERSION}.${GIT_EXTRA_VERSION}/Makefile
 	@ # Remove the Git installation first in case GIT_PREFIX is the default
 	@ # prefix which always points into our build directory. This is done so
 	@ # we never end up with mixed Git installations on developer machines.
 	@ # We cannot ever remove GIT_PREFIX though in case they're different
 	@ # because it may point to a user-controlled directory.
 	${Q}if [ "x${GIT_DEFAULT_PREFIX}" = "x${GIT_PREFIX}" ]; then rm -rf "${GIT_DEFAULT_PREFIX}"; fi
-	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
+	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
-${BUILD_DIR}/bin/gitaly-%: ${GIT_SOURCE_DIR}/% | ${BUILD_DIR}/bin
+${BUILD_DIR}/bin/gitaly-%: ${DEPENDENCY_DIR}/git-${GIT_VERSION}.${GIT_EXTRA_VERSION}/% | ${BUILD_DIR}/bin
+	${Q}install $< $@
+
+# Speed up fetches by making better use of the commit-graph and by not
+# computing the output-width if not requested. Merged into next via
+# 2b331293fb (Merge branch 'ps/fetch-optim-with-commit-graph' into next,
+# 2022-02-14).
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES := 0019-fetch-pack-use-commit-graph-when-computing-cutoff.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0020-fetch-skip-computing-output-width-when-not-printing-.patch
+
+# Skip execution of the reference-transaction hook a second time via the
+# packed-refs backend in case loose references are deleted. This will
+# eventually make a workaround obsolete where we had to filter out all
+# invocations of the hook where we only saw force-deletions of references such
+# that we don't depend on whether refs are packed or not. Merged into main via
+# 991b4d47f0 (Merge branch
+# 'ps/avoid-unnecessary-hook-invocation-with-packed-refs', 2022-02-18).
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0021-refs-extract-packed_refs_delete_refs-to-allow-contro.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0022-refs-allow-passing-flags-when-beginning-transactions.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0023-refs-allow-skipping-the-reference-transaction-hook.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0024-refs-demonstrate-excessive-execution-of-the-referenc.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0025-refs-do-not-execute-reference-transaction-hook-on-pa.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0026-refs-skip-hooks-when-deleting-uncovered-packed-refs.patch
+
+# Fix atomicity of git-fetch(1) to also cover pruning of references and
+# backfilling of tags. Previously, each reference modified via any of both
+# means would have created its own transaction and thus led to multiple hook
+# invocations. Merged into next via 3824153b23 (Merge branch 'ps/fetch-atomic'
+# into next, 2022-02-18). The first patch is unrelated, but required to fix a
+# merge conflict. It has been merged to main via c73d46b3a8 (Merge branch
+# 'tg/fetch-prune-exit-code-fix', 2022-02-11).
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0027-fetch-prune-exit-with-error-if-pruning-fails.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0028-fetch-increase-test-coverage-of-fetches.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0029-fetch-backfill-tags-before-setting-upstream.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0030-fetch-control-lifecycle-of-FETCH_HEAD-in-a-single-pl.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0031-fetch-report-errors-when-backfilling-tags-fails.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0032-refs-add-interface-to-iterate-over-queued-transactio.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0033-fetch-make-atomic-flag-cover-backfilling-of-tags.patch
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES += 0034-fetch-make-atomic-flag-cover-pruning-of-refs.patch
+
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_VERSION = v2.35.1
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_EXTRA_VERSION = gl1
+${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: ${DEPENDENCY_DIR}/git-v2.35.1.gl1/% | ${BUILD_DIR}/bin
 	${Q}install $< $@
 
 ${INSTALL_DEST_DIR}/gitaly-%: ${BUILD_DIR}/bin/gitaly-%
-	${Q}mkdir -p $(@D)
+	${Q}mkdir -p ${@D}
 	${Q}install $< $@
 
 ${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}

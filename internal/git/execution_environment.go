@@ -26,6 +26,13 @@ var (
 	// case `IsEnabled()` returns `false` though.
 	ExecutionEnvironmentConstructors = []ExecutionEnvironmentConstructor{
 		BundledGitEnvironmentConstructor{
+			Suffix: "-v2.35.1.gl1",
+			FeatureFlags: []featureflag.FeatureFlag{
+				featureflag.UseBundledGit,
+				featureflag.GitV2351WithFetchSpeedups,
+			},
+		},
+		BundledGitEnvironmentConstructor{
 			// This is the current default bundled Git environment, which does not yet
 			// have a version suffix.
 			Suffix: "",

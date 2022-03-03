@@ -1,0 +1,98 @@
+From 7c90ce62cd5ab5f769ec789eff038b43e8f5d910 Mon Sep 17 00:00:00 2001
+Message-Id: <7c90ce62cd5ab5f769ec789eff038b43e8f5d910.1646206542.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Patrick Steinhardt <ps@pks.im>
+Date: Thu, 17 Feb 2022 14:04:32 +0100
+Subject: [PATCH 32/34] refs: add interface to iterate over queued
+ transactional updates
+
+There is no way for a caller to see whether a reference update has
+already been queued up for a given reference transaction. There are
+multiple alternatives to provide this functionality:
+
+    - We may add a function that simply tells us whether a specific
+      reference has already been queued. If implemented naively then
+      this would potentially be quadratic in runtime behaviour if this
+      question is asked repeatedly because we have to iterate over all
+      references every time. The alternative would be to add a hashmap
+      of all queued reference updates to speed up the lookup, but this
+      adds overhead to all callers.
+
+    - We may add a flag to `ref_transaction_add_update()` that causes it
+      to skip duplicates, but this has the same runtime concerns as the
+      first alternative.
+
+    - We may add an interface which lets callers collect all updates
+      which have already been queued such that he can avoid re-adding
+      them. This is the most flexible approach and puts the burden on
+      the caller, but also allows us to not impact any of the existing
+      callsites which don't need this information.
+
+This commit implements the last approach: it allows us to compute the
+map of already-queued updates once up front such that we can then skip
+all subsequent references which are already part of this map.
+
+Signed-off-by: Patrick Steinhardt <ps@pks.im>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit 4f2ba2d06a7dd7e84e105a2779a7f07549d04231)
+---
+ refs.c | 16 ++++++++++++++++
+ refs.h | 14 ++++++++++++++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/refs.c b/refs.c
+index 435b90b1ec..5d9cb306ad 100644
+--- a/refs.c
++++ b/refs.c
+@@ -2434,6 +2434,22 @@ int initial_ref_transaction_commit(struct ref_transaction *transaction,
+ 	return refs->be->initial_transaction_commit(refs, transaction, err);
+ }
+ 
++void ref_transaction_for_each_queued_update(struct ref_transaction *transaction,
++					    ref_transaction_for_each_queued_update_fn cb,
++					    void *cb_data)
++{
++	int i;
++
++	for (i = 0; i < transaction->nr; i++) {
++		struct ref_update *update = transaction->updates[i];
++
++		cb(update->refname,
++		   (update->flags & REF_HAVE_OLD) ? &update->old_oid : NULL,
++		   (update->flags & REF_HAVE_NEW) ? &update->new_oid : NULL,
++		   cb_data);
++	}
++}
++
+ int refs_delete_refs(struct ref_store *refs, const char *logmsg,
+ 		     struct string_list *refnames, unsigned int flags)
+ {
+diff --git a/refs.h b/refs.h
+index a015354fd6..be5947f111 100644
+--- a/refs.h
++++ b/refs.h
+@@ -781,6 +781,20 @@ int ref_transaction_abort(struct ref_transaction *transaction,
+ int initial_ref_transaction_commit(struct ref_transaction *transaction,
+ 				   struct strbuf *err);
+ 
++/*
++ * Execute the given callback function for each of the reference updates which
++ * have been queued in the given transaction. `old_oid` and `new_oid` may be
++ * `NULL` pointers depending on whether the update has these object IDs set or
++ * not.
++ */
++typedef void ref_transaction_for_each_queued_update_fn(const char *refname,
++						       const struct object_id *old_oid,
++						       const struct object_id *new_oid,
++						       void *cb_data);
++void ref_transaction_for_each_queued_update(struct ref_transaction *transaction,
++					    ref_transaction_for_each_queued_update_fn cb,
++					    void *cb_data);
++
+ /*
+  * Free `*transaction` and all associated data.
+  */
+-- 
+2.35.1
+

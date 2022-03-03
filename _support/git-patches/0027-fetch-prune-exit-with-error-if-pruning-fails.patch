@@ -1,0 +1,74 @@
+From 05bb5009a6bded848b30bb82cc02e6bcb90a8fc3 Mon Sep 17 00:00:00 2001
+Message-Id: <05bb5009a6bded848b30bb82cc02e6bcb90a8fc3.1646206542.git.ps@pks.im>
+In-Reply-To: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+References: <c74f385fb46855ac0db222b6845ddb95e6a36264.1646206541.git.ps@pks.im>
+From: Thomas Gummerer <t.gummerer@gmail.com>
+Date: Mon, 31 Jan 2022 13:30:47 +0000
+Subject: [PATCH 27/34] fetch --prune: exit with error if pruning fails
+
+When pruning refs fails, we print an error to stderr, but still
+exit 0 from 'git fetch'.  Since this is a genuine error, fetch
+should be exiting with some non-zero exit code.  Make it so.
+
+The --prune option was introduced in f360d844de ("builtin-fetch: add
+--prune option", 2009-11-10).  Unfortunately it's unclear from that
+commit whether ignoring the exit code was an oversight or
+intentional, but it feels like an oversight.
+
+Helped-by: Johannes Schindelin <johannes.schindelin@gmx.de>
+Signed-off-by: Thomas Gummerer <t.gummerer@gmail.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+(cherry picked from commit c9e04d905edb5487c43b03304704e8d1248f9ac0)
+---
+ builtin/fetch.c  | 10 ++++++----
+ t/t5510-fetch.sh | 11 +++++++++++
+ 2 files changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/builtin/fetch.c b/builtin/fetch.c
+index ebbde5d56d..f5a64c7351 100644
+--- a/builtin/fetch.c
++++ b/builtin/fetch.c
+@@ -1613,12 +1613,14 @@ static int do_fetch(struct transport *transport,
+ 		 * don't care whether --tags was specified.
+ 		 */
+ 		if (rs->nr) {
+-			prune_refs(rs, ref_map, transport->url);
++			retcode = prune_refs(rs, ref_map, transport->url);
+ 		} else {
+-			prune_refs(&transport->remote->fetch,
+-				   ref_map,
+-				   transport->url);
++			retcode = prune_refs(&transport->remote->fetch,
++					     ref_map,
++					     transport->url);
+ 		}
++		if (retcode != 0)
++			retcode = 1;
+ 	}
+ 	if (fetch_and_consume_refs(transport, ref_map, worktrees)) {
+ 		free_refs(ref_map);
+diff --git a/t/t5510-fetch.sh b/t/t5510-fetch.sh
+index 20f7110ec1..ef0da0a63b 100755
+--- a/t/t5510-fetch.sh
++++ b/t/t5510-fetch.sh
+@@ -164,6 +164,17 @@ test_expect_success 'fetch --prune --tags with refspec prunes based on refspec'
+ 	git rev-parse sometag
+ '
+ 
++test_expect_success REFFILES 'fetch --prune fails to delete branches' '
++	cd "$D" &&
++	git clone . prune-fail &&
++	cd prune-fail &&
++	git update-ref refs/remotes/origin/extrabranch main &&
++	: this will prevent --prune from locking packed-refs for deleting refs, but adding loose refs still succeeds  &&
++	>.git/packed-refs.new &&
++
++	test_must_fail git fetch --prune origin
++'
++
+ test_expect_success 'fetch --atomic works with a single branch' '
+ 	test_when_finished "rm -rf \"$D\"/atomic" &&
+ 
+-- 
+2.35.1
+
