@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"golang.org/x/sync/errgroup"
 )
@@ -29,9 +30,12 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 		return nil, fmt.Errorf("get host assignments: %w", err)
 	}
 
-	replicaPath, err := s.rs.GetReplicaPath(ctx, repositoryID)
-	if err != nil {
-		return nil, fmt.Errorf("get replica path: %w", err)
+	replicaPath := relativePath
+	if s.conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
+		replicaPath, err = s.rs.GetReplicaPath(ctx, repositoryID)
+		if err != nil {
+			return nil, fmt.Errorf("get replica path: %w", err)
+		}
 	}
 
 	secondaries := make([]string, 0, len(assignments)-1)

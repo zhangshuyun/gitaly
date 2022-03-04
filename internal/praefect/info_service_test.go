@@ -58,7 +58,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	const virtualStorage = "default"
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{{Name: virtualStorage, Nodes: cfgNodes}},
-		Failover:        config.Failover{Enabled: true},
+		Failover:        config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository},
 	}
 
 	ctx := testhelper.Context(t)
