@@ -34,6 +34,7 @@ include:
   cache: &cache_deps_configuration
     key:
       files:
+        - .gitlab-ci.yml
         - Makefile
       prefix: git-${GIT_VERSION}
     paths:
@@ -45,6 +46,7 @@ include:
   cache: &cache_gems_configuration
     key:
       files:
+        - .gitlab-ci.yml
         - ruby/Gemfile.lock
       prefix: debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}
     paths:
@@ -55,6 +57,7 @@ include:
   cache: &cache_go_configuration
     key:
       files:
+        - .gitlab-ci.yml
         - go.sum
       prefix: go-${GO_VERSION}
     paths:
