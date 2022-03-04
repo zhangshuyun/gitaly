@@ -129,13 +129,9 @@ build:
     - _support/test-boot . ${TEST_BOOT_ARGS}
   parallel:
     matrix:
-      # These definitions are for the non-default Git versions.
-      #- GO_VERSION: [ "1.16", "1.17" ]
-      #  GIT_VERSION: [ ]
-      # These definitions are for the default Git version where we want to
-      # apply our default set of Git patches.
       - GO_VERSION: [ "1.16", "1.17" ]
         TEST_BOOT_ARGS: "--bundled-git"
+      - GIT_VERSION: "v2.33.0"
 
 build:binaries:
   stage: build
@@ -170,15 +166,15 @@ test:
     - setpriv --reuid=9999 --regid=9999 --clear-groups --no-new-privs env HOME=/dev/null make ${TARGET} SKIP_RSPEC_BUILD=YesPlease $(test "${GIT_VERSION}" = default && echo WITH_BUNDLED_GIT=YesPlease)
   parallel:
     matrix:
-      # These definitions are for the non-default Git versions.
-      #- GO_VERSION: [ "1.16", "1.17" ]
-      #  GIT_VERSION: [ ]
-      #  TARGET: test
-      # These definitions are for the default Git version where we want to
-      # apply our default set of Git patches.
+      # The following jobs all test with our default Git version, which is
+      # using bundled Git binaries.
       - GO_VERSION: [ "1.16", "1.17" ]
         TARGET: test
       - TARGET: [ test-with-proxies, test-with-praefect, race-go ]
+      # We also verify that things work as expected with a non-bundled Git
+      # version matching our minimum required Git version.
+      - TARGET: test
+        GIT_VERSION: "v2.33.0"
       # Execute tests with our minimum required Postgres version, as well. If
       # the minimum version changes, please change this to the new minimum
       # version. Furthermore, please make sure to update the minimum required
