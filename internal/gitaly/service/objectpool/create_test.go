@@ -143,6 +143,8 @@ func TestDelete(t *testing.T) {
 	cfg, repoProto, _, _, client := setup(ctx, t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
+	repositoryClient := gitalypb.NewRepositoryServiceClient(extractConn(client))
+
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
@@ -203,7 +205,6 @@ func TestDelete(t *testing.T) {
 					RelativePath: tc.relativePath,
 				},
 			}})
-
 			expectedErr := tc.error
 			if tc.error == errInvalidPoolDir && testhelper.IsPraefectEnabled() {
 				expectedErr = helper.ErrNotFound(fmt.Errorf(
@@ -213,6 +214,12 @@ func TestDelete(t *testing.T) {
 			}
 
 			testhelper.RequireGrpcError(t, expectedErr, err)
+
+			response, err := repositoryClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+				Repository: pool.ToProto().GetRepository(),
+			})
+			require.NoError(t, err)
+			require.Equal(t, tc.error != nil, response.GetExists())
 		})
 	}
 }

@@ -30,6 +30,18 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
+// clientWithConn allows for passing through the ClientConn to tests which need
+// to access other services than ObjectPoolService.
+type clientWithConn struct {
+	gitalypb.ObjectPoolServiceClient
+	conn *grpc.ClientConn
+}
+
+// extractConn returns the underlying ClientConn from the client.
+func extractConn(client gitalypb.ObjectPoolServiceClient) *grpc.ClientConn {
+	return client.(clientWithConn).conn
+}
+
 func setup(ctx context.Context, t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
 	t.Helper()
 
@@ -48,7 +60,7 @@ func setup(ctx context.Context, t *testing.T, opts ...testserver.GitalyServerOpt
 		Seed: gittest.SeedGitLabTest,
 	})
 
-	return cfg, repo, repoPath, locator, gitalypb.NewObjectPoolServiceClient(conn)
+	return cfg, repo, repoPath, locator, clientWithConn{ObjectPoolServiceClient: gitalypb.NewObjectPoolServiceClient(conn), conn: conn}
 }
 
 func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, logger *logrus.Logger, opts ...testserver.GitalyServerOpt) string {
