@@ -299,8 +299,9 @@ message UserMergeToRefRequest {
 message UserMergeToRefResponse {
   // commit_id is the object ID of the computed merge commit.
   string commit_id = 1;
-  // pre_receive_error contains an error message if the merge failed.
-  string pre_receive_error = 2;
+  // PreReceiveError is never set because this RPC does not perform
+  // authentication via `/internal/allowed`.
+  string pre_receive_error = 2 [deprecated=true];
 }
 
 // OperationBranchUpdate contains the details of a branch update.
