@@ -611,7 +611,7 @@ message UserRebaseConfirmableResponse {
   }
   // pre_receive_error contains an error message if the rebase failed because
   // of an error raised by hooks.
-  string pre_receive_error = 3;
+  string pre_receive_error = 3 [deprecated=true];
   // git_error contains an error message if git operations have failed.
   string git_error = 4;
 }
@@ -647,6 +647,19 @@ message UserSquashResponse {
   reserved 2;
   reserved "pre_receive_error";
   string git_error = 3;
+}
+
+message UserRebaseConfirmableError {
+  oneof error {
+    // ResolveRevision is returned in case resolving either the start or end
+    // revision has failed.
+    ResolveRevisionError resolve_revision = 1;
+    // RebaseConflict is returned in case rebasing commits on top of the start
+    // commit fails with a merge conflict.
+    MergeConflictError rebase_conflict = 2;
+
+    string pre_receive = 3;
+  }
 }
 
 // UserSquashError is an error that may be returned when the UserSquash RPC
