@@ -149,6 +149,9 @@ func NewGRPCServer(
 			"RepositoryExists": RepositoryExistsHandler(rs),
 			"RemoveRepository": RemoveRepositoryHandler(rs, conns),
 		})
+		proxy.RegisterStreamHandlers(srv, "gitaly.ObjectPoolService", map[string]grpc.StreamHandler{
+			"DeleteObjectPool": DeleteObjectPoolHandler(rs, conns),
+		})
 	}
 
 	return srv

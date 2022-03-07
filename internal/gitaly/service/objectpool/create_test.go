@@ -1,7 +1,6 @@
 package objectpool
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -205,15 +202,7 @@ func TestDelete(t *testing.T) {
 					RelativePath: tc.relativePath,
 				},
 			}})
-			expectedErr := tc.error
-			if tc.error == errInvalidPoolDir && testhelper.IsPraefectEnabled() {
-				expectedErr = helper.ErrNotFound(fmt.Errorf(
-					"mutator call: route repository mutator: get repository id: %w",
-					commonerr.NewRepositoryNotFoundError(repo.GetStorageName(), tc.relativePath),
-				))
-			}
-
-			testhelper.RequireGrpcError(t, expectedErr, err)
+			testhelper.RequireGrpcError(t, tc.error, err)
 
 			response, err := repositoryClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
 				Repository: pool.ToProto().GetRepository(),
