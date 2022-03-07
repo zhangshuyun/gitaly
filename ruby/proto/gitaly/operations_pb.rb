@@ -238,6 +238,13 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :squash_sha, :string, 1
       optional :git_error, :string, 3
     end
+    add_message "gitaly.UserRebaseConfirmableError" do
+      oneof :error do
+        optional :resolve_revision, :message, 1, "gitaly.ResolveRevisionError"
+        optional :rebase_conflict, :message, 2, "gitaly.MergeConflictError"
+        optional :pre_receive, :string, 3
+      end
+    end
     add_message "gitaly.UserSquashError" do
       oneof :error do
         optional :resolve_revision, :message, 1, "gitaly.ResolveRevisionError"
@@ -312,6 +319,7 @@ module Gitaly
   UserRebaseConfirmableResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserRebaseConfirmableResponse").msgclass
   UserSquashRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserSquashRequest").msgclass
   UserSquashResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserSquashResponse").msgclass
+  UserRebaseConfirmableError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserRebaseConfirmableError").msgclass
   UserSquashError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserSquashError").msgclass
   UserApplyPatchRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserApplyPatchRequest").msgclass
   UserApplyPatchRequest::Header = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserApplyPatchRequest.Header").msgclass

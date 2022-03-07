@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
@@ -152,6 +153,24 @@ func (s *Server) fetchStartRevision(
 
 	startRevision, err := remoteRepo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", startBranchName)))
 	if err != nil {
+		if featureflag.UserRebaseConfirmableImprovedErrorHandling.IsEnabled(ctx) {
+			detailedErr, err := helper.ErrWithDetails(
+				helper.ErrInvalidArgumentf("resolving branch on remote: %w", err),
+				&gitalypb.UserRebaseConfirmableError{
+					Error: &gitalypb.UserRebaseConfirmableError_ResolveRevision{
+						ResolveRevision: &gitalypb.ResolveRevisionError{
+							Revision: startBranchName,
+						},
+					},
+				},
+			)
+			if err != nil {
+				return "", helper.ErrInternalf("error details: %w", err)
+			}
+
+			return "", detailedErr
+		}
+
 		return "", helper.ErrInvalidArgumentf("resolve start ref: %w", err)
 	}
 

@@ -1239,6 +1239,7 @@ func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 
 			resp, err := client.UserMergeToRef(ctx, request)
 			require.NoError(t, err)
+			//nolint:staticcheck
 			require.Empty(t, resp.PreReceiveError)
 		})
 	}

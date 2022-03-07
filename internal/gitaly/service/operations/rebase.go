@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -67,6 +68,34 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		SkipEmptyCommits: true,
 	})
 	if err != nil {
+		if featureflag.UserRebaseConfirmableImprovedErrorHandling.IsEnabled(ctx) {
+			var conflictErr git2go.ConflictingFilesError
+			if errors.As(err, &conflictErr) {
+				conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFiles))
+				for _, conflictingFile := range conflictErr.ConflictingFiles {
+					conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
+				}
+
+				detailedErr, err := helper.ErrWithDetails(
+					helper.ErrInternalf("rebasing commits: %w", err),
+					&gitalypb.UserRebaseConfirmableError{
+						Error: &gitalypb.UserRebaseConfirmableError_RebaseConflict{
+							RebaseConflict: &gitalypb.MergeConflictError{
+								ConflictingFiles: conflictingFiles,
+							},
+						},
+					},
+				)
+				if err != nil {
+					return helper.ErrInternalf("error details: %w", err)
+				}
+
+				return detailedErr
+			}
+
+			return helper.ErrInternalf("rebasing commits: %w", err)
+		}
+
 		return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
 			GitError: err.Error(),
 		})
@@ -100,6 +129,21 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		header.GitPushOptions...); err != nil {
 		switch {
 		case errors.As(err, &updateref.HookError{}):
+			if featureflag.UserRebaseConfirmableImprovedErrorHandling.IsEnabled(ctx) {
+				detailedErr, err := helper.ErrWithDetails(
+					helper.ErrInternalf("rebasing commits: %w", err),
+					&gitalypb.UserRebaseConfirmableError{
+						Error: &gitalypb.UserRebaseConfirmableError_PreReceive{
+							PreReceive: err.Error(),
+						},
+					},
+				)
+				if err != nil {
+					return helper.ErrInternalf("error details: %w", err)
+				}
+
+				return detailedErr
+			}
 			return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
 				PreReceiveError: err.Error(),
 			})
