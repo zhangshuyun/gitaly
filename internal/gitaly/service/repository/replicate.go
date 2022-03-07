@@ -70,7 +70,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		return nil, helper.ErrInternalf("checking for repo existence: %w", err)
 	}
 	if !request.GetExists() {
-		return nil, helper.ErrNotFoundf("source repository does not exist")
+		return nil, ErrInvalidSourceRepository
 	}
 
 	outgoingCtx := metadata.IncomingToOutgoing(ctx)

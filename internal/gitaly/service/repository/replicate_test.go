@@ -26,7 +26,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
@@ -324,7 +323,7 @@ func testReplicateRepositoryBadRepository(t *testing.T, ctx context.Context) {
 			desc:          "source invalid",
 			invalidSource: true,
 			error: func(t testing.TB, actual error) {
-				testhelper.RequireGrpcError(t, actual, helper.ErrNotFoundf("source repository does not exist"))
+				testhelper.RequireGrpcError(t, actual, ErrInvalidSourceRepository)
 			},
 		},
 		{
