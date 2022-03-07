@@ -252,7 +252,9 @@ message UserMergeBranchResponse {
   // Second message
   // If set, the merge has been applied to the branch.
   OperationBranchUpdate branch_update = 3;
-  string pre_receive_error = 4;
+  // PreReceiveError is never set. Instead, we return a proper gRPC error with
+  // UserMergeBranchError details set to an AccessCheckError.
+  string pre_receive_error = 4 [deprecated=true];
 }
 
 // UserMergeBranchError includes error descriptions which may be set as error
@@ -299,8 +301,9 @@ message UserMergeToRefRequest {
 message UserMergeToRefResponse {
   // commit_id is the object ID of the computed merge commit.
   string commit_id = 1;
-  // pre_receive_error contains an error message if the merge failed.
-  string pre_receive_error = 2;
+  // PreReceiveError is never set because this RPC does not perform
+  // authentication via `/internal/allowed`.
+  string pre_receive_error = 2 [deprecated=true];
 }
 
 // OperationBranchUpdate contains the details of a branch update.
