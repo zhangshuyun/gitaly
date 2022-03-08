@@ -18,7 +18,6 @@ import (
 type CGroupV1Manager struct {
 	cfg                         cgroupscfg.Config
 	hierarchy                   func() ([]cgroups.Subsystem, error)
-	paths                       map[string]interface{}
 	memoryFailedTotal, cpuUsage *prometheus.GaugeVec
 	procs                       *prometheus.GaugeVec
 }
@@ -29,7 +28,6 @@ func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
 		hierarchy: func() ([]cgroups.Subsystem, error) {
 			return defaultSubsystems(cfg.Mountpoint)
 		},
-		paths: make(map[string]interface{}),
 		memoryFailedTotal: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "gitaly_cgroup_memory_failed_total",
@@ -101,8 +99,6 @@ func (cg *CGroupV1Manager) AddCommand(cmd *command.Command) error {
 		}
 		return fmt.Errorf("failed adding process to cgroup: %w", err)
 	}
-
-	cg.paths[cgroupPath] = struct{}{}
 
 	return nil
 }

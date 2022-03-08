@@ -67,7 +67,6 @@ func TestAddCommand(t *testing.T) {
 	v1Manager1 := &CGroupV1Manager{
 		cfg:       config,
 		hierarchy: mock.hierarchy,
-		paths:     make(map[string]interface{}),
 	}
 	require.NoError(t, v1Manager1.Setup())
 	ctx := testhelper.Context(t)
@@ -80,7 +79,6 @@ func TestAddCommand(t *testing.T) {
 	v1Manager2 := &CGroupV1Manager{
 		cfg:       config,
 		hierarchy: mock.hierarchy,
-		paths:     make(map[string]interface{}),
 	}
 	require.NoError(t, v1Manager2.AddCommand(cmd2))
 
