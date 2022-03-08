@@ -1,6 +1,7 @@
 package objectpool
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -18,7 +20,10 @@ import (
 )
 
 func TestLink(t *testing.T) {
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.LinkRepositoryToObjectPoolNotFound).Run(t, testLink)
+}
+
+func testLink(t *testing.T, ctx context.Context) {
 	cfg, repo, _, _, client := setup(ctx, t, testserver.WithDisablePraefect())
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
@@ -84,7 +89,10 @@ func TestLink(t *testing.T) {
 }
 
 func TestLinkIdempotent(t *testing.T) {
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.LinkRepositoryToObjectPoolNotFound).Run(t, testLinkIdempotent)
+}
+
+func testLinkIdempotent(t *testing.T, ctx context.Context) {
 	cfg, repoProto, _, _, client := setup(ctx, t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -133,7 +141,10 @@ func TestLinkNoClobber(t *testing.T) {
 }
 
 func TestLinkNoPool(t *testing.T) {
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.LinkRepositoryToObjectPoolNotFound).Run(t, testLinkNoPool)
+}
+
+func testLinkNoPool(t *testing.T, ctx context.Context) {
 	cfg, repo, _, locator, client := setup(ctx, t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -154,6 +165,12 @@ func TestLinkNoPool(t *testing.T) {
 	}
 
 	_, err = client.LinkRepositoryToObjectPool(ctx, request)
+	if featureflag.LinkRepositoryToObjectPoolNotFound.IsEnabled(ctx) {
+		testhelper.RequireGrpcCode(t, err, codes.NotFound)
+		require.Error(t, err, "GetRepoPath: not a git repository:")
+		return
+	}
+
 	require.NoError(t, err)
 
 	pool = rewrittenObjectPool(ctx, t, cfg, pool)

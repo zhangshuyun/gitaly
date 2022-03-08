@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
@@ -50,9 +51,12 @@ func TestMain(m *testing.M) {
 }
 
 func TestReplMgr_ProcessBacklog(t *testing.T) {
-	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.LinkRepositoryToObjectPoolNotFound).Run(t, testReplMgr_ProcessBacklog)
+}
 
-	ctx := testhelper.Context(t)
+//nolint:revive,stylecheck
+func testReplMgr_ProcessBacklog(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	primaryCfg, testRepoProto, testRepoPath := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
 	testRepo := localrepo.NewTestRepo(t, primaryCfg, testRepoProto)
